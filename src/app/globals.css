@@ -1,0 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #205C50;
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary: #84BEA1;
+  --color-secondary-foreground: #1A2E2A;
+  --color-foreground: #1A2E2A;
+  --color-muted-foreground: #6B7E79;
+  --color-background: #F5F7F5;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #1A2E2A;
+  --color-border: #D4DDD8;
+  --color-input: #D4DDD8;
+  --color-ring: #205C50;
+  --color-muted: #EEF2EF;
+  --color-accent: #EEF2EF;
+  --color-accent-foreground: #1A2E2A;
+  --color-destructive: #EE4036;
+  --color-sidebar-bg: #205C50;
+  --color-sidebar-accent: #1A4D42;
+  --color-sidebar-foreground: #84BEA1;
+  --color-sidebar-primary: #FFFFFF;
+  --color-sidebar-border: #1A4D42;
+  --color-sidebar-section: #A3D4C2;
+  --color-sidebar-inactive: #C8E6DC;
+  --color-success-bg: #E8F5EE;
+  --color-success-fg: #205C50;
+  --color-success-border: #B6FFCE;
+  --color-warning-bg: #FFF3EC;
+  --color-warning-fg: #E4793A;
+  --color-warning-border: #FF8400;
+  --color-error-bg: #FEF0EF;
+  --color-error-fg: #EE4036;
+  --color-info-bg: #ECF5F8;
+  --color-info-fg: #50C9BF;
+  --color-inactive-bg: #EEF2EF;
+  --color-inactive-fg: #6B7E79;
+  --font-sans: 'Inter', sans-serif;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    background: var(--color-background);
+    color: var(--color-foreground);
+    margin: 0;
+  }
+}
