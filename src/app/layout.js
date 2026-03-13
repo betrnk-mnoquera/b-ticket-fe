@@ -1,6 +1,6 @@
 import "./globals.css"
-import Sidebar from "@/components/layout/Sidebar"
 import { ToastProvider } from "@/components/ui/Toast"
+import AuthenticatedLayout from "@/components/layout/AuthenticatedLayout"
 
 export const metadata = {
   title: "B-Ticket Admin",
@@ -12,12 +12,9 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <ToastProvider>
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <main className="flex-1 ml-[280px] p-8">
-              {children}
-            </main>
-          </div>
+          <AuthenticatedLayout>
+            {children}
+          </AuthenticatedLayout>
         </ToastProvider>
       </body>
     </html>

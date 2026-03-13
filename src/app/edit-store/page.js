@@ -1,51 +1,220 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import PageHeader from '@/components/layout/PageHeader'
 import Icon from '@/components/ui/Icon'
 import FileUpload from '@/components/ui/FileUpload'
 import { useToast } from '@/components/ui/Toast'
+import LoadingSkeleton, { CardSkeleton } from '@/components/ui/LoadingSkeleton'
+import ErrorState from '@/components/ui/ErrorState'
+import { storeService } from '@/lib/api/services/storeService'
+import { lineOfBusinessService } from '@/lib/api/services/lineOfBusinessService'
+import { mediaService } from '@/lib/api/services/mediaService'
 
 const steps = ['Business Details', 'Business Fields', 'Documents', 'Media', 'Review']
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-const categories = ['Food & Beverage', 'Retail & Fashion', 'Electronics', 'Health & Wellness', 'Home & Garden', 'Automotive']
-
-const categoryFields = {
-  'Food & Beverage': [
-    { name: 'Cuisine Type', type: 'select', options: ['Filipino', 'Japanese', 'Italian', 'Chinese', 'American'] },
-    { name: 'Seating Capacity', type: 'number' },
-    { name: 'Dining Area', type: 'select', options: ['Indoor', 'Outdoor', 'Both'] },
-    { name: 'WiFi Available', type: 'boolean' },
-    { name: 'Parking', type: 'boolean' },
-  ],
-  'Retail & Fashion': [
-    { name: 'Store Size', type: 'select', options: ['Small', 'Medium', 'Large'] },
-    { name: 'Product Range', type: 'text' },
-    { name: 'Fitting Room', type: 'boolean' },
-  ],
-  'Electronics': [
-    { name: 'Brand Authorized', type: 'boolean' },
-    { name: 'Repair Service', type: 'boolean' },
-    { name: 'Warranty Type', type: 'select', options: ['Standard', 'Extended', 'None'] },
-  ],
-}
 
 export default function EditStore() {
+  const searchParams = useSearchParams()
+  const storeId = searchParams.get('id')
   const [currentStep, setCurrentStep] = useState(0)
-  const [category, setCategory] = useState('Food & Beverage')
+  const [category, setCategory] = useState('')
   const [hours, setHours] = useState(days.map(d => ({ day: d, open: d !== 'Sunday', openTime: '09:00', closeTime: '21:00' })))
   const [boolFields, setBoolFields] = useState({})
+  const [fieldValues, setFieldValues] = useState({})
   const [uploadedDocs, setUploadedDocs] = useState([])
   const [uploadedPhotos, setUploadedPhotos] = useState([])
   const toast = useToast()
 
+  // API state
+  const [storeData, setStoreData] = useState(null)
+  const [categoriesList, setCategoriesList] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+
+  // Form state
+  const [formData, setFormData] = useState({
+    storeName: '',
+    description: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    country: 'Philippines',
+    zipCode: '',
+    priceRange: '$',
+    paymentMethods: '',
+    organizationId: '',
+  })
+
+  const fetchStoreData = useCallback(async () => {
+    if (!storeId) {
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    setError(null)
+    try {
+      const [storeRes, catsRes] = await Promise.all([
+        storeService.getStore(storeId),
+        lineOfBusinessService.getAll({ perPage: 100 }),
+      ])
+      const store = storeRes.data || storeRes
+      const catsResult = catsRes.data || catsRes
+      const cats = catsResult.data || catsResult || []
+
+      setStoreData(store)
+      setCategoriesList(cats)
+
+      // Populate form from store data
+      setFormData({
+        storeName: store.storeName || '',
+        description: store.description || '',
+        email: store.email || '',
+        phone: store.phone || '',
+        address: store.address || '',
+        city: store.city || '',
+        country: store.country || 'Philippines',
+        zipCode: store.zipCode || '',
+        priceRange: store.priceRange || '$',
+        paymentMethods: store.paymentMethods || '',
+        organizationId: store.organizationId || store.organization?.id || '',
+      })
+
+      const catName = store.lineOfBusiness?.name || store.category || (cats.length > 0 ? cats[0].name : '')
+      setCategory(catName)
+
+      if (store.businessHours) {
+        setHours(store.businessHours)
+      }
+
+      if (store.fieldValues) {
+        setFieldValues(store.fieldValues)
+        // Extract boolean fields
+        const bools = {}
+        Object.entries(store.fieldValues).forEach(([k, v]) => {
+          if (typeof v === 'boolean') bools[k] = v
+        })
+        setBoolFields(bools)
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to load store data')
+    } finally {
+      setLoading(false)
+    }
+  }, [storeId])
+
+  useEffect(() => {
+    fetchStoreData()
+  }, [fetchStoreData])
+
+  // Fetch categories if no storeId (just categories list)
+  useEffect(() => {
+    if (!storeId) {
+      const fetchCats = async () => {
+        try {
+          const catsRes = await lineOfBusinessService.getAll({ perPage: 100 })
+          const catsResult = catsRes.data || catsRes
+          setCategoriesList(catsResult.data || catsResult || [])
+          if (!category && (catsResult.data || catsResult || []).length > 0) {
+            setCategory((catsResult.data || catsResult)[0].name)
+          }
+        } catch {
+          // Silently fail
+        }
+      }
+      fetchCats()
+    }
+  }, [storeId, category])
+
+  const categoryNames = categoriesList.map(c => c.name)
+  const selectedCategory = categoriesList.find(c => c.name === category)
+  const categoryFields = selectedCategory?.fields || []
+
+  const handleFileUpload = async (file, onSuccess) => {
+    setUploading(true)
+    try {
+      const response = await mediaService.upload(file)
+      const result = response.data || response
+      if (onSuccess) onSuccess(result)
+      return result
+    } catch (err) {
+      toast(err.message || 'Failed to upload file')
+      return null
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const payload = {
+        storeName: formData.storeName,
+        description: formData.description,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        city: formData.city,
+        country: formData.country,
+        zipCode: formData.zipCode,
+        priceRange: formData.priceRange,
+        paymentMethods: formData.paymentMethods,
+        lineOfBusinessId: selectedCategory?.id,
+        businessHours: hours,
+        fieldValues: { ...fieldValues, ...boolFields },
+      }
+
+      if (storeId) {
+        await storeService.updateStore(storeId, payload)
+      }
+      toast('Store saved successfully!')
+    } catch (err) {
+      toast(err.message || 'Failed to save store')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const cls = 'w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-ring'
+
+  if (loading) {
+    return (
+      <div>
+        <PageHeader
+          breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'Organizations & Stores', href: '/organizations' }, { label: 'Edit Store' }]}
+          title="Edit Store"
+        />
+        <CardSkeleton count={1} />
+        <div className="mt-6">
+          <LoadingSkeleton rows={6} columns={2} />
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div>
+        <PageHeader
+          breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'Organizations & Stores', href: '/organizations' }, { label: 'Edit Store' }]}
+          title="Edit Store"
+        />
+        <ErrorState message={error} onRetry={fetchStoreData} />
+      </div>
+    )
+  }
+
+  const storeName = formData.storeName || 'New Store'
 
   return (
     <div>
       <PageHeader
-        breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'Organizations & Stores', href: '/organizations' }, { label: 'Edit Store - Acme Downtown' }]}
-        title="Edit Store - Acme Downtown"
+        breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'Organizations & Stores', href: '/organizations' }, { label: `Edit Store - ${storeName}` }]}
+        title={`Edit Store - ${storeName}`}
       />
 
       {/* Stepper */}
@@ -77,41 +246,44 @@ export default function EditStore() {
           <div className="space-y-6">
             <h3 className="text-base font-semibold">Business Details</h3>
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Store Name</label><input className={cls} defaultValue="Acme Downtown" /></div>
+              <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Store Name</label><input className={cls} value={formData.storeName} onChange={e => setFormData(p => ({ ...p, storeName: e.target.value }))} /></div>
               <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Category</label>
                 <select className={cls} value={category} onChange={e => setCategory(e.target.value)}>
-                  {categories.map(c => <option key={c}>{c}</option>)}
+                  {categoryNames.map(c => <option key={c}>{c}</option>)}
                 </select>
               </div>
             </div>
             <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Organization</label>
-              <select className={cls}><option>Acme Corp</option><option>TechHub Inc</option><option>Independent</option></select>
+              <select className={cls} value={formData.organizationId} onChange={e => setFormData(p => ({ ...p, organizationId: e.target.value }))}>
+                {storeData?.organization && <option value={storeData.organization.id}>{storeData.organization.name}</option>}
+                <option value="">Independent</option>
+              </select>
             </div>
             <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Description</label>
-              <textarea className={`${cls} h-20 resize-none`} defaultValue="A popular downtown restaurant serving fusion cuisine." />
+              <textarea className={`${cls} h-20 resize-none`} value={formData.description} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} />
             </div>
 
             <h4 className="text-sm font-semibold pt-2">Contact</h4>
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Email</label><input type="email" className={cls} defaultValue="store@acme.com" /></div>
-              <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Phone</label><input type="tel" className={cls} defaultValue="+63 912 345 6789" /></div>
+              <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Email</label><input type="email" className={cls} value={formData.email} onChange={e => setFormData(p => ({ ...p, email: e.target.value }))} /></div>
+              <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Phone</label><input type="tel" className={cls} value={formData.phone} onChange={e => setFormData(p => ({ ...p, phone: e.target.value }))} /></div>
             </div>
 
             <h4 className="text-sm font-semibold pt-2">Address</h4>
-            <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Street Address</label><input className={cls} defaultValue="123 Main St" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Street Address</label><input className={cls} value={formData.address} onChange={e => setFormData(p => ({ ...p, address: e.target.value }))} /></div>
             <div className="grid grid-cols-3 gap-4">
-              <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">City</label><input className={cls} defaultValue="Manila" /></div>
+              <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">City</label><input className={cls} value={formData.city} onChange={e => setFormData(p => ({ ...p, city: e.target.value }))} /></div>
               <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Country</label>
-                <select className={cls}><option>Philippines</option><option>Singapore</option><option>Malaysia</option></select>
+                <select className={cls} value={formData.country} onChange={e => setFormData(p => ({ ...p, country: e.target.value }))}><option>Philippines</option><option>Singapore</option><option>Malaysia</option></select>
               </div>
-              <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Zip Code</label><input className={cls} defaultValue="1000" /></div>
+              <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Zip Code</label><input className={cls} value={formData.zipCode} onChange={e => setFormData(p => ({ ...p, zipCode: e.target.value }))} /></div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Price Range</label>
-                <select className={cls}><option>$</option><option>$$</option><option>$$$</option><option>$$$$</option></select>
+                <select className={cls} value={formData.priceRange} onChange={e => setFormData(p => ({ ...p, priceRange: e.target.value }))}><option>$</option><option>$$</option><option>$$$</option><option>$$$$</option></select>
               </div>
-              <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Payment Methods</label><input className={cls} defaultValue="Cash, Card, GCash" /></div>
+              <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Payment Methods</label><input className={cls} value={formData.paymentMethods} onChange={e => setFormData(p => ({ ...p, paymentMethods: e.target.value }))} /></div>
             </div>
 
             <h4 className="text-sm font-semibold pt-2">Business Hours</h4>
@@ -141,19 +313,22 @@ export default function EditStore() {
           <div className="space-y-4">
             <h3 className="text-base font-semibold">Business Fields — {category}</h3>
             <p className="text-sm text-muted-foreground">Configure fields specific to the {category} category.</p>
-            {(categoryFields[category] || categoryFields['Food & Beverage']).map((field, i) => (
+            {categoryFields.map((field, i) => (
               <div key={i}>
                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.name}</label>
                 {field.type === 'select' ? (
-                  <select className={cls}><option value="">Select...</option>{field.options.map(o => <option key={o}>{o}</option>)}</select>
+                  <select className={cls} value={fieldValues[field.name] || ''} onChange={e => setFieldValues(p => ({ ...p, [field.name]: e.target.value }))}>
+                    <option value="">Select...</option>
+                    {(Array.isArray(field.options) ? field.options : []).map(o => <option key={o}>{o}</option>)}
+                  </select>
                 ) : field.type === 'number' ? (
-                  <input type="number" className={cls} />
+                  <input type="number" className={cls} value={fieldValues[field.name] || ''} onChange={e => setFieldValues(p => ({ ...p, [field.name]: e.target.value }))} />
                 ) : field.type === 'boolean' ? (
                   <button onClick={() => setBoolFields(p => ({ ...p, [field.name]: !p[field.name] }))}
                     className={`w-10 h-5 rounded-full relative transition-colors ${boolFields[field.name] ? 'bg-primary' : 'bg-border'}`}>
                     <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${boolFields[field.name] ? 'left-5' : 'left-0.5'}`} />
                   </button>
-                ) : <input className={cls} />}
+                ) : <input className={cls} value={fieldValues[field.name] || ''} onChange={e => setFieldValues(p => ({ ...p, [field.name]: e.target.value }))} />}
               </div>
             ))}
           </div>
@@ -163,8 +338,8 @@ export default function EditStore() {
           <div className="space-y-4">
             <h3 className="text-base font-semibold">Documents</h3>
             <p className="text-sm text-muted-foreground">Upload required business documents.</p>
-            <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Business Permit</label><FileUpload accept="PDF, JPG, PNG up to 10MB" onFile={f => setUploadedDocs(p => [...p, f])} /></div>
-            <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Certificates</label><FileUpload accept="PDF, JPG, PNG up to 10MB" onFile={f => setUploadedDocs(p => [...p, f])} /></div>
+            <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Business Permit</label><FileUpload accept="PDF, JPG, PNG up to 10MB" onFile={f => handleFileUpload(f, result => setUploadedDocs(p => [...p, { ...result, name: f?.name || 'Document' }]))} /></div>
+            <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Certificates</label><FileUpload accept="PDF, JPG, PNG up to 10MB" onFile={f => handleFileUpload(f, result => setUploadedDocs(p => [...p, { ...result, name: f?.name || 'Certificate' }]))} /></div>
             {uploadedDocs.length > 0 && (
               <div className="space-y-2">
                 {uploadedDocs.map((doc, i) => (
@@ -175,6 +350,7 @@ export default function EditStore() {
                 ))}
               </div>
             )}
+            {uploading && <p className="text-xs text-muted-foreground">Uploading...</p>}
           </div>
         )}
 
@@ -182,13 +358,13 @@ export default function EditStore() {
           <div className="space-y-4">
             <h3 className="text-base font-semibold">Media</h3>
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Logo</label><FileUpload accept="JPG, PNG, SVG" /></div>
-              <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Featured Image</label><FileUpload accept="JPG, PNG" /></div>
+              <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Logo</label><FileUpload accept="JPG, PNG, SVG" onFile={f => handleFileUpload(f)} /></div>
+              <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Featured Image</label><FileUpload accept="JPG, PNG" onFile={f => handleFileUpload(f)} /></div>
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Additional Photos</label>
               <div className="grid grid-cols-4 gap-3">
-                <FileUpload compact label="Add Photo" accept="JPG, PNG" onFile={f => setUploadedPhotos(p => [...p, f])} />
+                <FileUpload compact label="Add Photo" accept="JPG, PNG" onFile={f => handleFileUpload(f, result => setUploadedPhotos(p => [...p, result]))} />
                 {uploadedPhotos.map((_, i) => (
                   <div key={i} className="aspect-square bg-gradient-to-br from-primary/20 to-secondary/20 rounded-xl relative group">
                     <button onClick={() => setUploadedPhotos(p => p.filter((_, j) => j !== i))}
@@ -199,6 +375,7 @@ export default function EditStore() {
                 ))}
               </div>
             </div>
+            {uploading && <p className="text-xs text-muted-foreground">Uploading...</p>}
           </div>
         )}
 
@@ -207,8 +384,8 @@ export default function EditStore() {
             <h3 className="text-base font-semibold">Review</h3>
             <p className="text-sm text-muted-foreground">Please review all information before saving.</p>
             {[
-              ['Business Details', [['Store Name', 'Acme Downtown'], ['Category', category], ['Organization', 'Acme Corp'], ['City', 'Manila'], ['Country', 'Philippines']]],
-              ['Contact', [['Email', 'store@acme.com'], ['Phone', '+63 912 345 6789']]],
+              ['Business Details', [['Store Name', formData.storeName], ['Category', category], ['Organization', storeData?.organization?.name || 'Independent'], ['City', formData.city], ['Country', formData.country]]],
+              ['Contact', [['Email', formData.email], ['Phone', formData.phone]]],
               ['Documents', [['Business Permit', uploadedDocs.length > 0 ? 'Uploaded' : 'Not uploaded'], ['Certificates', 'Not uploaded']]],
               ['Media', [['Logo', 'Not uploaded'], ['Photos', `${uploadedPhotos.length} uploaded`]]],
             ].map(([section, items]) => (
@@ -240,9 +417,9 @@ export default function EditStore() {
             Next <Icon name="chevron_right" size={16} />
           </button>
         ) : (
-          <button onClick={() => toast('Store saved successfully!')}
-            className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 flex items-center gap-1.5">
-            <Icon name="check" size={16} /> Save & Publish
+          <button onClick={handleSave} disabled={saving}
+            className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5">
+            <Icon name="check" size={16} /> {saving ? 'Saving...' : 'Save & Publish'}
           </button>
         )}
       </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import PageHeader from '@/components/layout/PageHeader'
 import StatsCard from '@/components/ui/StatsCard'
@@ -11,33 +11,190 @@ import Drawer from '@/components/ui/Drawer'
 import { DeleteModal } from '@/components/ui/Modal'
 import Icon from '@/components/ui/Icon'
 import FileUpload from '@/components/ui/FileUpload'
+import LoadingSkeleton from '@/components/ui/LoadingSkeleton'
+import ErrorState from '@/components/ui/ErrorState'
 import { useToast } from '@/components/ui/Toast'
-import { organizations } from '@/data/mockData'
+import { storeService } from '@/lib/api/services/storeService'
+import { organizationService } from '@/lib/api/services/organizationService'
+import { lineOfBusinessService } from '@/lib/api/services/lineOfBusinessService'
 
-const stats = [
-  { icon: 'corporate_fare', label: 'Total Organizations', value: '24' },
-  { icon: 'store', label: 'Total Stores', value: '161' },
-  { icon: 'storefront', label: 'Independent Stores', value: '5' },
-  { icon: 'payments', label: 'Avg. Revenue/Store', value: 'PHP 3.2K' },
-]
+const ITEMS_PER_PAGE = 10
 
 const filters = ['All', 'Pending', 'For Review', 'Verified', 'Declined']
+
+const filterToStatus = {
+  'All': undefined,
+  'Pending': 'pending',
+  'For Review': 'for_review',
+  'Verified': 'verified',
+  'Declined': 'declined',
+}
 
 const hours = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
 export default function Organizations() {
   const [filter, setFilter] = useState('All')
   const [page, setPage] = useState(1)
+  const [searchQuery, setSearchQuery] = useState('')
   const [selectedStore, setSelectedStore] = useState(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [drawerType, setDrawerType] = useState('store')
   const [activeTab, setActiveTab] = useState('overview')
+  const [submitting, setSubmitting] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const toast = useToast()
 
-  const filtered = filter === 'All' ? organizations : organizations.filter(o => o.status === filter.toLowerCase().replace(/\s+/g, '_'))
+  // Store list state
+  const [stores, setStores] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalItems, setTotalItems] = useState(0)
+
+  // Dropdown data for create forms
+  const [organizationsList, setOrganizationsList] = useState([])
+  const [categoriesList, setCategoriesList] = useState([])
+
+  // Form state
+  const [formData, setFormData] = useState({})
+
+  // Debounce ref
+  const debounceRef = useRef(null)
+
+  const fetchStores = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const params = {
+        page,
+        perPage: ITEMS_PER_PAGE,
+      }
+      const status = filterToStatus[filter]
+      if (status) params.status = status
+      if (searchQuery) params.search = searchQuery
+
+      const response = await storeService.getStores(params)
+      const result = response.data || response
+
+      setStores(result.data || [])
+      setTotalPages(result.lastPage || 1)
+      setTotalItems(result.total || 0)
+    } catch (err) {
+      setError(err.message || 'Failed to load stores')
+      setStores([])
+    } finally {
+      setLoading(false)
+    }
+  }, [page, filter, searchQuery])
+
+  useEffect(() => {
+    fetchStores()
+  }, [fetchStores])
+
+  // Fetch organizations and categories for dropdowns
+  useEffect(() => {
+    const fetchDropdownData = async () => {
+      try {
+        const [orgsRes, catsRes] = await Promise.all([
+          organizationService.getOrganizations({ perPage: 100 }),
+          lineOfBusinessService.getAll({ perPage: 100 }),
+        ])
+        const orgsResult = orgsRes.data || orgsRes
+        const catsResult = catsRes.data || catsRes
+        setOrganizationsList(orgsResult.data || orgsResult || [])
+        setCategoriesList(catsResult.data || catsResult || [])
+      } catch {
+        // Silently fail - dropdowns will be empty
+      }
+    }
+    fetchDropdownData()
+  }, [])
+
+  const handleFilterChange = (newFilter) => {
+    setFilter(newFilter)
+    setPage(1)
+  }
+
+  const handleSearch = (query) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setSearchQuery(query)
+      setPage(1)
+    }, 400)
+  }
+
+  const handlePageChange = (newPage) => {
+    setPage(newPage)
+  }
+
+  const handleFormChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleSave = async () => {
+    setSubmitting(true)
+    try {
+      if (drawerType === 'organization') {
+        await organizationService.createOrganization({
+          name: formData.organizationName,
+          email: formData.email,
+          description: formData.description,
+        })
+        toast('Organization created successfully')
+      } else {
+        await storeService.createStore({
+          storeName: formData.storeName,
+          organizationId: formData.organizationId,
+          lineOfBusinessId: formData.lineOfBusinessId,
+          email: formData.email,
+          phone: formData.phone,
+          address: formData.address,
+          city: formData.city,
+          country: formData.country,
+          description: formData.description,
+        })
+        toast('Store created successfully')
+      }
+      setDrawerOpen(false)
+      setFormData({})
+      fetchStores()
+    } catch (err) {
+      toast(err.message || 'Failed to create. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await storeService.deleteStore(deleteTarget.id)
+      toast('Store deleted successfully')
+      setDeleteTarget(null)
+      if (selectedStore?.id === deleteTarget.id) {
+        setSelectedStore(null)
+      }
+      fetchStores()
+    } catch (err) {
+      toast(err.message || 'Failed to delete. Please try again.')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const stats = [
+    { icon: 'corporate_fare', label: 'Total Organizations', value: String(organizationsList.length || 0) },
+    { icon: 'store', label: 'Total Stores', value: String(totalItems) },
+    { icon: 'storefront', label: 'Independent Stores', value: '-' },
+    { icon: 'payments', label: 'Avg. Revenue/Store', value: '-' },
+  ]
 
   if (selectedStore) {
+    const orgName = selectedStore.organization?.name || 'Independent'
+    const categoryName = selectedStore.lineOfBusiness?.name || '-'
+
     return (
       <div>
         <button onClick={() => setSelectedStore(null)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-3">
@@ -59,10 +216,10 @@ export default function Organizations() {
                   <StatusBadge status={selectedStore.status} />
                 </div>
                 <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1"><Icon name="corporate_fare" size={14} /> {selectedStore.organization}</span>
+                  <span className="flex items-center gap-1"><Icon name="corporate_fare" size={14} /> {orgName}</span>
                   <span className="flex items-center gap-1"><Icon name="tag" size={14} /> {selectedStore.storeId}</span>
-                  <span className="flex items-center gap-1"><Icon name="location_on" size={14} /> Manila, PH</span>
-                  <span className="flex items-center gap-1"><Icon name="category" size={14} /> {selectedStore.category}</span>
+                  <span className="flex items-center gap-1"><Icon name="location_on" size={14} /> {selectedStore.city || 'N/A'}, {selectedStore.country || 'N/A'}</span>
+                  <span className="flex items-center gap-1"><Icon name="category" size={14} /> {categoryName}</span>
                 </div>
               </div>
             </div>
@@ -99,19 +256,19 @@ export default function Organizations() {
               <DetailCard title="Business Details">
                 <DetailGrid items={[
                   ['Store Name', selectedStore.storeName],
-                  ['Category', selectedStore.category],
+                  ['Category', categoryName],
                   ['Status', <StatusBadge key="s" status={selectedStore.status} />],
-                  ['Organization', selectedStore.organization],
+                  ['Organization', orgName],
                   ['Price Range', '$$'],
                   ['Payment', 'Cash, Card, GCash'],
                 ]} />
               </DetailCard>
               <DetailCard title="Location & Contact">
                 <DetailGrid items={[
-                  ['Email', 'store@acme.com'],
-                  ['Phone', '+63 912 345 6789'],
-                  ['Address', '123 Main St, Manila'],
-                  ['Country', 'Philippines'],
+                  ['Email', selectedStore.email || '-'],
+                  ['Phone', selectedStore.phone || '-'],
+                  ['Address', selectedStore.address || '-'],
+                  ['Country', selectedStore.country || '-'],
                 ]} />
               </DetailCard>
             </div>
@@ -188,7 +345,7 @@ export default function Organizations() {
         <DeleteModal
           open={!!deleteTarget}
           onClose={() => setDeleteTarget(null)}
-          onConfirm={() => { setDeleteTarget(null); setSelectedStore(null); toast('Store deleted successfully') }}
+          onConfirm={handleDelete}
           entityName={deleteTarget?.storeName}
         />
       </div>
@@ -202,7 +359,7 @@ export default function Organizations() {
         title="Organizations & Stores"
         subtitle="Manage all organizations and their stores"
         actions={
-          <button onClick={() => setDrawerOpen(true)} className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 flex items-center gap-1.5">
+          <button onClick={() => { setDrawerOpen(true); setFormData({}) }} className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 flex items-center gap-1.5">
             <Icon name="add" size={16} /> Add New
           </button>
         }
@@ -214,59 +371,79 @@ export default function Organizations() {
 
       <div className="bg-card border border-border rounded-xl shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
         <div className="p-4 border-b border-border">
-          <FilterBar filters={filters} activeFilter={filter} onFilterChange={setFilter} />
+          <FilterBar filters={filters} activeFilter={filter} onFilterChange={handleFilterChange} onSearch={handleSearch} />
         </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-xs text-muted-foreground">
-              <th className="text-left px-4 py-3 font-medium">Store</th>
-              <th className="text-left px-4 py-3 font-medium">Organization</th>
-              <th className="text-left px-4 py-3 font-medium">Category</th>
-              <th className="text-left px-4 py-3 font-medium">Status</th>
-              <th className="text-left px-4 py-3 font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(org => (
-              <tr key={org.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Icon name="store" size={16} className="text-primary" />
-                    </div>
-                    <div>
-                      <div className="font-medium">{org.storeName}</div>
-                      <div className="text-xs text-muted-foreground">{org.storeId}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  {org.organization === 'Independent' ? (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Independent</span>
-                  ) : org.organization}
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">{org.category}</td>
-                <td className="px-4 py-3"><StatusBadge status={org.status} /></td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => setSelectedStore(org)} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="visibility" size={16} className="text-muted-foreground" /></button>
-                    <button className="p-1.5 rounded-lg hover:bg-muted"><Icon name="edit" size={16} className="text-muted-foreground" /></button>
-                    <button onClick={() => setDeleteTarget(org)} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="delete" size={16} className="text-destructive" /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="px-4 py-3 border-t border-border">
-          <Pagination currentPage={page} totalPages={2} totalItems={organizations.length} itemsPerPage={8} onPageChange={setPage} />
-        </div>
+
+        {loading ? (
+          <LoadingSkeleton rows={ITEMS_PER_PAGE} columns={5} />
+        ) : error ? (
+          <ErrorState message={error} onRetry={fetchStores} />
+        ) : stores.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Icon name="store" size={40} className="text-muted-foreground mb-2" />
+            <p className="text-sm text-muted-foreground">No stores found</p>
+          </div>
+        ) : (
+          <>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-xs text-muted-foreground">
+                  <th className="text-left px-4 py-3 font-medium">Store</th>
+                  <th className="text-left px-4 py-3 font-medium">Organization</th>
+                  <th className="text-left px-4 py-3 font-medium">Category</th>
+                  <th className="text-left px-4 py-3 font-medium">Status</th>
+                  <th className="text-left px-4 py-3 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stores.map(store => {
+                  const orgName = store.organization?.name || 'Independent'
+                  const categoryName = store.lineOfBusiness?.name || '-'
+                  return (
+                    <tr key={store.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <Icon name="store" size={16} className="text-primary" />
+                          </div>
+                          <div>
+                            <div className="font-medium">{store.storeName}</div>
+                            <div className="text-xs text-muted-foreground">{store.storeId}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {orgName === 'Independent' ? (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Independent</span>
+                        ) : orgName}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{categoryName}</td>
+                      <td className="px-4 py-3"><StatusBadge status={store.status} /></td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => setSelectedStore(store)} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="visibility" size={16} className="text-muted-foreground" /></button>
+                          <button className="p-1.5 rounded-lg hover:bg-muted"><Icon name="edit" size={16} className="text-muted-foreground" /></button>
+                          <button onClick={() => setDeleteTarget(store)} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="delete" size={16} className="text-destructive" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            <div className="px-4 py-3 border-t border-border">
+              <Pagination currentPage={page} totalPages={totalPages} totalItems={totalItems} itemsPerPage={ITEMS_PER_PAGE} onPageChange={handlePageChange} />
+            </div>
+          </>
+        )}
       </div>
 
       <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Add New"
         footer={<>
           <button onClick={() => setDrawerOpen(false)} className="px-4 py-2 text-sm font-medium rounded-full border border-border hover:bg-muted">Cancel</button>
-          <button onClick={() => { setDrawerOpen(false); toast('Created successfully') }} className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90">Save</button>
+          <button onClick={handleSave} disabled={submitting} className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 disabled:opacity-50">
+            {submitting ? 'Saving...' : 'Save'}
+          </button>
         </>}
       >
         <div className="space-y-4">
@@ -274,7 +451,7 @@ export default function Organizations() {
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Type</label>
             <div className="grid grid-cols-2 gap-3">
               {['organization', 'store'].map(t => (
-                <button key={t} onClick={() => setDrawerType(t)}
+                <button key={t} onClick={() => { setDrawerType(t); setFormData({}) }}
                   className={`p-4 rounded-xl border text-center text-sm font-medium capitalize ${drawerType === t ? 'border-primary bg-primary/5 text-primary' : 'border-border hover:bg-muted'}`}>
                   <Icon name={t === 'organization' ? 'corporate_fare' : 'store'} size={24} className="block mx-auto mb-1" />
                   {t}
@@ -284,26 +461,26 @@ export default function Organizations() {
           </div>
           {drawerType === 'organization' ? (
             <>
-              <FormField label="Organization Name" />
-              <FormField label="Email" type="email" />
-              <FormField label="Description" textarea />
+              <FormField label="Organization Name" value={formData.organizationName || ''} onChange={v => handleFormChange('organizationName', v)} />
+              <FormField label="Email" type="email" value={formData.email || ''} onChange={v => handleFormChange('email', v)} />
+              <FormField label="Description" textarea value={formData.description || ''} onChange={v => handleFormChange('description', v)} />
               <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Logo</label><FileUpload compact /></div>
             </>
           ) : (
             <>
-              <FormField label="Store Name" />
-              <FormField label="Organization" select options={['Acme Corp', 'TechHub Inc', 'Style Group', 'Independent']} />
-              <FormField label="Category" select options={['Food & Beverage', 'Retail & Fashion', 'Electronics', 'Health & Wellness']} />
+              <FormField label="Store Name" value={formData.storeName || ''} onChange={v => handleFormChange('storeName', v)} />
+              <FormField label="Organization" select options={organizationsList.map(o => ({ label: o.name, value: o.id }))} value={formData.organizationId || ''} onChange={v => handleFormChange('organizationId', v)} />
+              <FormField label="Category" select options={categoriesList.map(c => ({ label: c.name, value: c.id }))} value={formData.lineOfBusinessId || ''} onChange={v => handleFormChange('lineOfBusinessId', v)} />
               <div className="grid grid-cols-2 gap-3">
-                <FormField label="Email" type="email" />
-                <FormField label="Phone" type="tel" />
+                <FormField label="Email" type="email" value={formData.email || ''} onChange={v => handleFormChange('email', v)} />
+                <FormField label="Phone" type="tel" value={formData.phone || ''} onChange={v => handleFormChange('phone', v)} />
               </div>
-              <FormField label="Address" />
+              <FormField label="Address" value={formData.address || ''} onChange={v => handleFormChange('address', v)} />
               <div className="grid grid-cols-2 gap-3">
-                <FormField label="City" />
-                <FormField label="Country" select options={['Philippines', 'Singapore', 'Malaysia']} />
+                <FormField label="City" value={formData.city || ''} onChange={v => handleFormChange('city', v)} />
+                <FormField label="Country" select options={[{ label: 'Philippines', value: 'Philippines' }, { label: 'Singapore', value: 'Singapore' }, { label: 'Malaysia', value: 'Malaysia' }]} value={formData.country || ''} onChange={v => handleFormChange('country', v)} />
               </div>
-              <FormField label="Description" textarea />
+              <FormField label="Description" textarea value={formData.description || ''} onChange={v => handleFormChange('description', v)} />
             </>
           )}
         </div>
@@ -312,21 +489,31 @@ export default function Organizations() {
       <DeleteModal
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
-        onConfirm={() => { setDeleteTarget(null); toast('Deleted successfully') }}
+        onConfirm={handleDelete}
         entityName={deleteTarget?.storeName}
       />
     </div>
   )
 }
 
-function FormField({ label, type = 'text', textarea, select, options = [] }) {
+function FormField({ label, type = 'text', textarea, select, options = [], value = '', onChange }) {
   const cls = 'w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-ring'
+  const handleChange = (e) => onChange?.(e.target.value)
   return (
     <div>
       <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{label}</label>
-      {textarea ? <textarea className={`${cls} h-20 resize-none`} /> :
-       select ? <select className={cls}><option value="">Select {label}</option>{options.map(o => <option key={o} value={o}>{o}</option>)}</select> :
-       <input type={type} className={cls} />}
+      {textarea ? <textarea className={`${cls} h-20 resize-none`} value={value} onChange={handleChange} /> :
+       select ? (
+         <select className={cls} value={value} onChange={handleChange}>
+           <option value="">Select {label}</option>
+           {options.map(o => {
+             const optValue = typeof o === 'object' ? o.value : o
+             const optLabel = typeof o === 'object' ? o.label : o
+             return <option key={optValue} value={optValue}>{optLabel}</option>
+           })}
+         </select>
+       ) :
+       <input type={type} className={cls} value={value} onChange={handleChange} />}
     </div>
   )
 }

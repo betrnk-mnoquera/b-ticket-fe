@@ -5,6 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:sit": "cp .env.sit .env.production.local && next build",
+    "build:uat": "cp .env.uat .env.production.local && next build",
+    "build:production": "cp .env.production .env.production.local && next build",
     "start": "next start",
     "lint": "eslint"
   },

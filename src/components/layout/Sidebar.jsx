@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import Icon from '../ui/Icon'
+import { useAuth } from '@/lib/auth/AuthContext'
 
 const navSections = [
   {
@@ -38,6 +39,14 @@ const navSections = [
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const { user, logout } = useAuth()
+
+  const initials = user?.initials ?? user?.name
+    ?.split(' ')
+    .map(w => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) ?? '??'
 
   return (
     <aside className="w-[280px] min-h-screen bg-sidebar-bg flex flex-col fixed top-0 left-0 bottom-0 z-10 border-r border-sidebar-border">
@@ -88,12 +97,19 @@ export default function Sidebar() {
       <div className="px-4 py-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3 px-3">
           <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center text-xs font-bold text-white">
-            JD
+            {initials}
           </div>
-          <div className="min-w-0">
-            <div className="text-sm font-medium text-white truncate">John Doe</div>
-            <div className="text-xs text-sidebar-section truncate">admin@bticket.com</div>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium text-white truncate">{user?.name ?? 'User'}</div>
+            <div className="text-xs text-sidebar-section truncate">{user?.email ?? ''}</div>
           </div>
+          <button
+            onClick={logout}
+            title="Sign out"
+            className="text-sidebar-inactive hover:text-white transition-colors"
+          >
+            <Icon name="logout" size={18} />
+          </button>
         </div>
       </div>
     </aside>
