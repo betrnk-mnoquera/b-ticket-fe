@@ -143,16 +143,22 @@ export default function Organizations() {
         })
         toast('Organization created successfully')
       } else {
+        const customFields = formData.customFields ? Object.entries(formData.customFields).reduce((acc, [k, v]) => {
+          if (v) acc[k.replace('cf_', '')] = v
+          return acc
+        }, {}) : null
         await storeService.createStore({
           storeName: formData.storeName,
           organizationId: formData.organizationId,
           lineOfBusinessId: formData.lineOfBusinessId,
+          storeType: formData.storeType || null,
           email: formData.email,
           phone: formData.phone,
           address: formData.address,
           city: formData.city,
           country: formData.country,
           description: formData.description,
+          customFields: Object.keys(customFields || {}).length > 0 ? customFields : null,
         })
         toast('Store created successfully')
       }
@@ -391,6 +397,7 @@ export default function Organizations() {
                   <th className="text-left px-4 py-3 font-medium">Store</th>
                   <th className="text-left px-4 py-3 font-medium">Organization</th>
                   <th className="text-left px-4 py-3 font-medium">Category</th>
+                  <th className="text-left px-4 py-3 font-medium">Details</th>
                   <th className="text-left px-4 py-3 font-medium">Status</th>
                   <th className="text-left px-4 py-3 font-medium">Actions</th>
                 </tr>
@@ -399,6 +406,7 @@ export default function Organizations() {
                 {stores.map(store => {
                   const orgName = store.organization?.name || 'Independent'
                   const categoryName = store.lineOfBusiness?.name || '-'
+                  const customFields = store.customFields || {}
                   return (
                     <tr key={store.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                       <td className="px-4 py-3">
@@ -418,6 +426,20 @@ export default function Organizations() {
                         ) : orgName}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{categoryName}</td>
+                      <td className="px-4 py-3">
+                        {Object.keys(customFields).length > 0 ? (
+                          <div className="space-y-0.5">
+                            {Object.entries(customFields).map(([key, val]) => (
+                              <div key={key} className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-muted-foreground">{key}:</span>
+                                <span className="text-xs font-medium">{val}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3"><StatusBadge status={store.status} /></td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
@@ -469,8 +491,34 @@ export default function Organizations() {
           ) : (
             <>
               <FormField label="Store Name" value={formData.storeName || ''} onChange={v => handleFormChange('storeName', v)} />
-              <FormField label="Organization" select options={organizationsList.map(o => ({ label: o.name, value: o.id }))} value={formData.organizationId || ''} onChange={v => handleFormChange('organizationId', v)} />
-              <FormField label="Category" select options={categoriesList.map(c => ({ label: c.name, value: c.id }))} value={formData.lineOfBusinessId || ''} onChange={v => handleFormChange('lineOfBusinessId', v)} />
+              <FormField label="Organization" select options={[{ label: 'No Organization', value: '' }, ...organizationsList.map(o => ({ label: o.name, value: o.id }))]} value={formData.organizationId || ''} onChange={v => { handleFormChange('organizationId', v); if (!v) handleFormChange('storeType', ''); else if (!formData.storeType) handleFormChange('storeType', 'branch'); }} placeholder="Select Organization" helperText="Create an organization first to link this store" />
+              {formData.organizationId && (
+                <FormField label="Type" select options={[{ label: 'Branch', value: 'branch' }, { label: 'Franchise', value: 'franchise' }]} value={formData.storeType || 'branch'} onChange={v => handleFormChange('storeType', v)} />
+              )}
+              <FormField label="Category" select options={categoriesList.map(c => ({ label: c.name, value: c.id }))} value={formData.lineOfBusinessId || ''} onChange={v => { handleFormChange('lineOfBusinessId', v); handleFormChange('customFields', {}); }} helperText="Add categories in Line of Business settings" />
+              {(() => {
+                const selectedCat = categoriesList.find(c => String(c.id) === String(formData.lineOfBusinessId))
+                const catFields = selectedCat?.fields || []
+                if (catFields.length === 0) return null
+                return (
+                  <div className="space-y-3 pl-3 border-l-2 border-primary/20">
+                    <p className="text-xs font-medium text-muted-foreground">{selectedCat.name} Fields</p>
+                    {catFields.map((f, i) => {
+                      const fieldKey = `cf_${f.name}`
+                      const val = formData.customFields?.[fieldKey] || ''
+                      const onChange = v => handleFormChange('customFields', { ...formData.customFields, [fieldKey]: v })
+                      if (f.type === 'select') {
+                        const opts = (Array.isArray(f.options) ? f.options : []).map(o => ({ label: o, value: o }))
+                        return <FormField key={i} label={f.name} select options={opts} value={val} onChange={onChange} />
+                      }
+                      if (f.type === 'boolean') {
+                        return <FormField key={i} label={f.name} select options={[{ label: 'Yes', value: 'true' }, { label: 'No', value: 'false' }]} value={val} onChange={onChange} />
+                      }
+                      return <FormField key={i} label={f.name} type={f.type === 'number' ? 'number' : 'text'} value={val} onChange={onChange} />
+                    })}
+                  </div>
+                )
+              })()}
               <div className="grid grid-cols-2 gap-3">
                 <FormField label="Email" type="email" value={formData.email || ''} onChange={v => handleFormChange('email', v)} />
                 <FormField label="Phone" type="tel" value={formData.phone || ''} onChange={v => handleFormChange('phone', v)} />
@@ -496,16 +544,17 @@ export default function Organizations() {
   )
 }
 
-function FormField({ label, type = 'text', textarea, select, options = [], value = '', onChange }) {
+function FormField({ label, type = 'text', textarea, select, options = [], value = '', onChange, placeholder, helperText }) {
   const cls = 'w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-ring'
   const handleChange = (e) => onChange?.(e.target.value)
+  const hasCustomPlaceholder = options.length > 0 && options[0].value === ''
   return (
     <div>
       <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{label}</label>
       {textarea ? <textarea className={`${cls} h-20 resize-none`} value={value} onChange={handleChange} /> :
        select ? (
          <select className={cls} value={value} onChange={handleChange}>
-           <option value="">Select {label}</option>
+           {!hasCustomPlaceholder && <option value="">{placeholder || `Select ${label}`}</option>}
            {options.map(o => {
              const optValue = typeof o === 'object' ? o.value : o
              const optLabel = typeof o === 'object' ? o.label : o
@@ -514,6 +563,7 @@ function FormField({ label, type = 'text', textarea, select, options = [], value
          </select>
        ) :
        <input type={type} className={cls} value={value} onChange={handleChange} />}
+      {helperText && <p className="text-xs text-muted-foreground mt-1">{helperText}</p>}
     </div>
   )
 }

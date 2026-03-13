@@ -15,7 +15,44 @@ import { lineOfBusinessService } from '@/lib/api/services/lineOfBusinessService'
 
 const filters = ['All', 'Active', 'Inactive']
 const fieldIcons = { text: 'text_fields', select: 'list', number: 'tag', boolean: 'toggle_on' }
-const iconOptions = ['restaurant', 'shopping_bag', 'devices', 'health_and_safety', 'yard', 'directions_car', 'sports_esports', 'school', 'pets', 'spa', 'fitness_center', 'local_library']
+const iconOptions = ['restaurant', 'shopping_bag', 'devices', 'health_and_safety', 'yard', 'directions_car', 'sports_esports', 'school', 'pets', 'spa', 'fitness_center', 'local_library', 'hotel', 'flight', 'theater_comedy']
+
+const categoryPresets = {
+  'Food & Beverage': {
+    icon: 'restaurant',
+    subcategories: ['Japanese', 'Korean', 'Chinese', 'Asian', 'Western', 'Filipino', 'Cafés & Dessert', 'Bars & Nightlife', 'Fast Food', 'Catering'],
+  },
+  'Wellness & Beauty': {
+    icon: 'spa',
+    subcategories: ['Spas & Massage', 'Hair & Nail Salons', 'Lash & Brow Studios', 'Aesthetics & Skincare', 'Sauna & Wellness Centers'],
+  },
+  'Services': {
+    icon: 'devices',
+    subcategories: ['Auto Services', 'Pet Services', 'Laundry & Cleaning', 'Repair & Maintenance', 'Event Services'],
+  },
+  'Entertainment & Leisure': {
+    icon: 'theater_comedy',
+    subcategories: ['Karaoke / KTV', 'Sports & Games', 'Attractions & Theme Parks', 'Activity & Event Venues'],
+  },
+  'Fitness & Sports': {
+    icon: 'fitness_center',
+    subcategories: ['Gyms & Training Studios', 'Yoga & Pilates', 'Dance & Movement', 'Sports Clubs'],
+  },
+  'Hotels & Stays': {
+    icon: 'hotel',
+    subcategories: ['Hotels & Resorts', 'Boutique & Lifestyle Hotels', 'Serviced Apartments', 'Villas', 'Hostels', 'Staycation Packages'],
+  },
+  'Academy & Learning': {
+    icon: 'school',
+    subcategories: ['Language & Academic Education', 'Music & Dance', 'Art & Creative Workshops', 'Cooking & Lifestyle Classes', 'Certification & Test Prep', 'Kids Learning Programs'],
+  },
+  'Travel & Experiences': {
+    icon: 'flight',
+    subcategories: ['Tours & Travel Packages', 'Transport Services', 'Vehicle Rentals', 'Adventure & Outdoor Activities', 'City & Attraction Passes'],
+  },
+}
+
+const categoryOptions = Object.keys(categoryPresets)
 
 export default function LineOfBusiness() {
   const [filter, setFilter] = useState('All')
@@ -25,6 +62,7 @@ export default function LineOfBusiness() {
   const [selectedIcon, setSelectedIcon] = useState('restaurant')
   const [fields, setFields] = useState([{ name: '', type: 'text', options: '' }])
   const [isActive, setIsActive] = useState(true)
+  const [selectedCategory, setSelectedCategory] = useState('')
   const [formData, setFormData] = useState({ name: '', description: '' })
   const toast = useToast()
 
@@ -67,8 +105,23 @@ export default function LineOfBusiness() {
   const removeField = (i) => setFields(p => p.filter((_, j) => j !== i))
   const updateField = (i, key, val) => setFields(p => p.map((f, j) => j === i ? { ...f, [key]: val } : f))
 
+  const handleCategorySelect = (catName) => {
+    setSelectedCategory(catName)
+    if (catName && categoryPresets[catName]) {
+      const preset = categoryPresets[catName]
+      setFormData(p => ({ ...p, name: catName }))
+      setSelectedIcon(preset.icon)
+      setFields([
+        { name: 'Subcategory', type: 'select', options: preset.subcategories.join(', ') },
+      ])
+    } else {
+      setFields([{ name: '', type: 'text', options: '' }])
+    }
+  }
+
   const openCreate = () => {
     setEditTarget(null)
+    setSelectedCategory('')
     setFormData({ name: '', description: '' })
     setFields([{ name: '', type: 'text', options: '' }])
     setSelectedIcon('restaurant')
@@ -79,6 +132,7 @@ export default function LineOfBusiness() {
   const openEdit = (cat) => {
     setEditTarget(cat)
     setFormData({ name: cat.name || '', description: cat.description || '' })
+    setSelectedCategory(categoryPresets[cat.name] ? cat.name : '')
     setFields(cat.fields?.length > 0 ? cat.fields.map(f => ({
       name: f.name || '',
       type: f.type || 'text',
@@ -219,6 +273,14 @@ export default function LineOfBusiness() {
         footer={<><button onClick={() => setDrawerOpen(false)} className="px-4 py-2 text-sm font-medium rounded-full border border-border hover:bg-muted">Cancel</button><button onClick={handleSave} disabled={submitting} className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 disabled:opacity-50">{submitting ? 'Saving...' : 'Save'}</button></>}
       >
         <div className="space-y-5">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Category</label>
+            <select className="w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-ring" value={selectedCategory} onChange={e => handleCategorySelect(e.target.value)}>
+              <option value="">Select a category</option>
+              {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <p className="text-xs text-muted-foreground mt-1">Selecting a category auto-fills subcategories and icon</p>
+          </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Category Name</label>
             <input className="w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-ring" value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} />
