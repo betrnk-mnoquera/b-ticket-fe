@@ -339,8 +339,9 @@ export default function Subscribers() {
                       </td>
                       <td className="px-4 py-3">{s.couponsUsed ?? 0}</td>
                       <td className="px-4 py-3 text-muted-foreground">{s.subscribedDate || '-'}</td>
-                      <td className="px-4 py-3"><div className="flex gap-1">
+                      <td className="px-4 py-3"><div className="flex items-center gap-1">
                         <button onClick={() => handleViewDetail(s)} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="visibility" size={16} className="text-muted-foreground" /></button>
+                        <button onClick={() => { setDrawerOpen(true); setFormData(s) }} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="edit" size={16} className="text-muted-foreground" /></button>
                         <button onClick={() => setDeleteTarget(s)} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="delete" size={16} className="text-destructive" /></button>
                       </div></td>
                     </tr>

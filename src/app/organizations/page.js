@@ -75,11 +75,10 @@ export default function Organizations() {
       if (searchQuery) params.search = searchQuery
 
       const response = await storeService.getStores(params)
-      const result = response.data || response
 
-      setStores(result.data || [])
-      setTotalPages(result.lastPage || 1)
-      setTotalItems(result.total || 0)
+      setStores(response.data || [])
+      setTotalPages(response.lastPage || response.meta?.lastPage || 1)
+      setTotalItems(response.total || response.meta?.total || 0)
     } catch (err) {
       setError(err.message || 'Failed to load stores')
       setStores([])
@@ -143,16 +142,22 @@ export default function Organizations() {
         })
         toast('Organization created successfully')
       } else {
+        const customFields = formData.customFields ? Object.entries(formData.customFields).reduce((acc, [k, v]) => {
+          if (v) acc[k.replace('cf_', '')] = v
+          return acc
+        }, {}) : null
         await storeService.createStore({
           storeName: formData.storeName,
           organizationId: formData.organizationId,
           lineOfBusinessId: formData.lineOfBusinessId,
+          storeType: formData.storeType || null,
           email: formData.email,
           phone: formData.phone,
           address: formData.address,
           city: formData.city,
           country: formData.country,
           description: formData.description,
+          customFields: Object.keys(customFields || {}).length > 0 ? customFields : null,
         })
         toast('Store created successfully')
       }
@@ -184,10 +189,11 @@ export default function Organizations() {
     }
   }
 
+  const independentCount = stores.filter(s => !s.organizationId && !s.organization).length
   const stats = [
     { icon: 'corporate_fare', label: 'Total Organizations', value: String(organizationsList.length || 0) },
     { icon: 'store', label: 'Total Stores', value: String(totalItems) },
-    { icon: 'storefront', label: 'Independent Stores', value: '-' },
+    { icon: 'storefront', label: 'Independent Stores', value: String(independentCount) },
     { icon: 'payments', label: 'Avg. Revenue/Store', value: '-' },
   ]
 
@@ -359,9 +365,14 @@ export default function Organizations() {
         title="Organizations & Stores"
         subtitle="Manage all organizations and their stores"
         actions={
-          <button onClick={() => { setDrawerOpen(true); setFormData({}) }} className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 flex items-center gap-1.5">
-            <Icon name="add" size={16} /> Add New
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => { setDrawerOpen(true); setDrawerType('organization'); setFormData({}) }} className="px-4 py-2 text-sm font-medium rounded-full border border-border hover:bg-muted flex items-center gap-1.5">
+              <Icon name="add" size={16} /> Add Organization
+            </button>
+            <Link href="/edit-store" className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 flex items-center gap-1.5">
+              <Icon name="add" size={16} /> Add Store
+            </Link>
+          </div>
         }
       />
 
@@ -391,6 +402,7 @@ export default function Organizations() {
                   <th className="text-left px-4 py-3 font-medium">Store</th>
                   <th className="text-left px-4 py-3 font-medium">Organization</th>
                   <th className="text-left px-4 py-3 font-medium">Category</th>
+                  <th className="text-left px-4 py-3 font-medium">Details</th>
                   <th className="text-left px-4 py-3 font-medium">Status</th>
                   <th className="text-left px-4 py-3 font-medium">Actions</th>
                 </tr>
@@ -399,6 +411,7 @@ export default function Organizations() {
                 {stores.map(store => {
                   const orgName = store.organization?.name || 'Independent'
                   const categoryName = store.lineOfBusiness?.name || '-'
+                  const customFields = store.customFields || {}
                   return (
                     <tr key={store.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                       <td className="px-4 py-3">
@@ -418,11 +431,25 @@ export default function Organizations() {
                         ) : orgName}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{categoryName}</td>
+                      <td className="px-4 py-3">
+                        {Object.keys(customFields).length > 0 ? (
+                          <div className="space-y-0.5">
+                            {Object.entries(customFields).map(([key, val]) => (
+                              <div key={key} className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-muted-foreground">{key}:</span>
+                                <span className="text-xs font-medium">{val === 'true' ? 'Yes' : val === 'false' ? 'No' : val}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3"><StatusBadge status={store.status} /></td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <button onClick={() => setSelectedStore(store)} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="visibility" size={16} className="text-muted-foreground" /></button>
-                          <button className="p-1.5 rounded-lg hover:bg-muted"><Icon name="edit" size={16} className="text-muted-foreground" /></button>
+                          <Link href={`/edit-store?id=${store.id}`} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="edit" size={16} className="text-muted-foreground" /></Link>
                           <button onClick={() => setDeleteTarget(store)} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="delete" size={16} className="text-destructive" /></button>
                         </div>
                       </td>
@@ -438,7 +465,7 @@ export default function Organizations() {
         )}
       </div>
 
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Add New"
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Add Organization"
         footer={<>
           <button onClick={() => setDrawerOpen(false)} className="px-4 py-2 text-sm font-medium rounded-full border border-border hover:bg-muted">Cancel</button>
           <button onClick={handleSave} disabled={submitting} className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 disabled:opacity-50">
@@ -447,42 +474,10 @@ export default function Organizations() {
         </>}
       >
         <div className="space-y-4">
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Type</label>
-            <div className="grid grid-cols-2 gap-3">
-              {['organization', 'store'].map(t => (
-                <button key={t} onClick={() => { setDrawerType(t); setFormData({}) }}
-                  className={`p-4 rounded-xl border text-center text-sm font-medium capitalize ${drawerType === t ? 'border-primary bg-primary/5 text-primary' : 'border-border hover:bg-muted'}`}>
-                  <Icon name={t === 'organization' ? 'corporate_fare' : 'store'} size={24} className="block mx-auto mb-1" />
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
-          {drawerType === 'organization' ? (
-            <>
-              <FormField label="Organization Name" value={formData.organizationName || ''} onChange={v => handleFormChange('organizationName', v)} />
-              <FormField label="Email" type="email" value={formData.email || ''} onChange={v => handleFormChange('email', v)} />
-              <FormField label="Description" textarea value={formData.description || ''} onChange={v => handleFormChange('description', v)} />
-              <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Logo</label><FileUpload compact /></div>
-            </>
-          ) : (
-            <>
-              <FormField label="Store Name" value={formData.storeName || ''} onChange={v => handleFormChange('storeName', v)} />
-              <FormField label="Organization" select options={organizationsList.map(o => ({ label: o.name, value: o.id }))} value={formData.organizationId || ''} onChange={v => handleFormChange('organizationId', v)} />
-              <FormField label="Category" select options={categoriesList.map(c => ({ label: c.name, value: c.id }))} value={formData.lineOfBusinessId || ''} onChange={v => handleFormChange('lineOfBusinessId', v)} />
-              <div className="grid grid-cols-2 gap-3">
-                <FormField label="Email" type="email" value={formData.email || ''} onChange={v => handleFormChange('email', v)} />
-                <FormField label="Phone" type="tel" value={formData.phone || ''} onChange={v => handleFormChange('phone', v)} />
-              </div>
-              <FormField label="Address" value={formData.address || ''} onChange={v => handleFormChange('address', v)} />
-              <div className="grid grid-cols-2 gap-3">
-                <FormField label="City" value={formData.city || ''} onChange={v => handleFormChange('city', v)} />
-                <FormField label="Country" select options={[{ label: 'Philippines', value: 'Philippines' }, { label: 'Singapore', value: 'Singapore' }, { label: 'Malaysia', value: 'Malaysia' }]} value={formData.country || ''} onChange={v => handleFormChange('country', v)} />
-              </div>
-              <FormField label="Description" textarea value={formData.description || ''} onChange={v => handleFormChange('description', v)} />
-            </>
-          )}
+          <FormField label="Organization Name" value={formData.organizationName || ''} onChange={v => handleFormChange('organizationName', v)} />
+          <FormField label="Email" type="email" value={formData.email || ''} onChange={v => handleFormChange('email', v)} />
+          <FormField label="Description" textarea value={formData.description || ''} onChange={v => handleFormChange('description', v)} />
+          <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Logo</label><FileUpload compact /></div>
         </div>
       </Drawer>
 
@@ -496,16 +491,17 @@ export default function Organizations() {
   )
 }
 
-function FormField({ label, type = 'text', textarea, select, options = [], value = '', onChange }) {
+function FormField({ label, type = 'text', textarea, select, options = [], value = '', onChange, placeholder, helperText }) {
   const cls = 'w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-ring'
   const handleChange = (e) => onChange?.(e.target.value)
+  const hasCustomPlaceholder = options.length > 0 && options[0].value === ''
   return (
     <div>
       <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{label}</label>
       {textarea ? <textarea className={`${cls} h-20 resize-none`} value={value} onChange={handleChange} /> :
        select ? (
          <select className={cls} value={value} onChange={handleChange}>
-           <option value="">Select {label}</option>
+           {!hasCustomPlaceholder && <option value="">{placeholder || `Select ${label}`}</option>}
            {options.map(o => {
              const optValue = typeof o === 'object' ? o.value : o
              const optLabel = typeof o === 'object' ? o.label : o
@@ -514,6 +510,7 @@ function FormField({ label, type = 'text', textarea, select, options = [], value
          </select>
        ) :
        <input type={type} className={cls} value={value} onChange={handleChange} />}
+      {helperText && <p className="text-xs text-muted-foreground mt-1">{helperText}</p>}
     </div>
   )
 }

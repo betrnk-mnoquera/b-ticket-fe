@@ -300,7 +300,7 @@ export default function AdsManagement() {
             <p className="text-sm text-muted-foreground">No campaigns found</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-xs text-muted-foreground">
@@ -348,7 +348,7 @@ export default function AdsManagement() {
                 })}
               </tbody>
             </table>
-          </div>
+          </>
         )}
         <div className="px-4 py-3 border-t border-border">
           <Pagination currentPage={page} totalPages={totalPages} totalItems={totalItems} itemsPerPage={perPage} onPageChange={setPage} />
