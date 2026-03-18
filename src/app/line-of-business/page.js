@@ -258,7 +258,8 @@ export default function LineOfBusiness() {
                     </div>
                   </td>
                   <td className="px-4 py-3"><StatusBadge status={cat.status} /></td>
-                  <td className="px-4 py-3"><div className="flex gap-1">
+                  <td className="px-4 py-3"><div className="flex items-center gap-1">
+                    <button className="p-1.5 rounded-lg hover:bg-muted"><Icon name="visibility" size={16} className="text-muted-foreground" /></button>
                     <button onClick={() => openEdit(cat)} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="edit" size={16} className="text-muted-foreground" /></button>
                     <button onClick={() => setDeleteTarget(cat)} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="delete" size={16} className="text-destructive" /></button>
                   </div></td>

@@ -254,7 +254,8 @@ export default function Users() {
                       <td className="px-4 py-3"><StatusBadge status={u.status} /></td>
                       <td className="px-4 py-3 text-muted-foreground">{u.lastLoginAt || u.lastLogin || '-'}</td>
                       <td className="px-4 py-3 text-muted-foreground">{u.createdAt || '-'}</td>
-                      <td className="px-4 py-3"><div className="flex gap-1">
+                      <td className="px-4 py-3"><div className="flex items-center gap-1">
+                        <button className="p-1.5 rounded-lg hover:bg-muted"><Icon name="visibility" size={16} className="text-muted-foreground" /></button>
                         <button onClick={() => openEdit(u)} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="edit" size={16} className="text-muted-foreground" /></button>
                         <button onClick={() => setDeleteTarget(u)} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="delete" size={16} className="text-destructive" /></button>
                       </div></td>

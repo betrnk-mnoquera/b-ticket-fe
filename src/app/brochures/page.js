@@ -11,7 +11,7 @@ import { DeleteModal } from '@/components/ui/Modal'
 import Icon from '@/components/ui/Icon'
 import FileUpload from '@/components/ui/FileUpload'
 import { useToast } from '@/components/ui/Toast'
-import { CardSkeleton } from '@/components/ui/LoadingSkeleton'
+import LoadingSkeleton, { CardSkeleton } from '@/components/ui/LoadingSkeleton'
 import ErrorState from '@/components/ui/ErrorState'
 import { brochureService } from '@/lib/api/services/brochureService'
 import { mediaService } from '@/lib/api/services/mediaService'
@@ -285,9 +285,7 @@ export default function Brochures() {
         {error ? (
           <ErrorState message={error} onRetry={fetchBrochures} />
         ) : loading ? (
-          <div className="p-4">
-            <CardSkeleton count={6} />
-          </div>
+          <LoadingSkeleton rows={10} columns={6} />
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
@@ -343,7 +341,7 @@ export default function Brochures() {
                   <td className="px-4 py-3">{(b.views ?? 0).toLocaleString()}</td>
                   <td className="px-4 py-3 text-muted-foreground">{b.createdAt}</td>
                   <td className="px-4 py-3"><StatusBadge status={b.status} /></td>
-                  <td className="px-4 py-3"><div className="flex gap-1">
+                  <td className="px-4 py-3"><div className="flex items-center gap-1">
                     <button onClick={() => setSelected(b)} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="visibility" size={16} className="text-muted-foreground" /></button>
                     {b.status !== 'published' && (
                       <button onClick={() => handlePublish(b)} disabled={publishing} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="publish" size={16} className="text-green-600" /></button>

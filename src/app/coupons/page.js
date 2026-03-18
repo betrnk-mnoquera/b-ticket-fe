@@ -12,7 +12,7 @@ import Icon from '@/components/ui/Icon'
 import Accordion from '@/components/ui/Accordion'
 import FileUpload from '@/components/ui/FileUpload'
 import { useToast } from '@/components/ui/Toast'
-import { CardSkeleton, TableSkeleton } from '@/components/ui/LoadingSkeleton'
+import LoadingSkeleton, { CardSkeleton } from '@/components/ui/LoadingSkeleton'
 import ErrorState from '@/components/ui/ErrorState'
 import { couponService } from '@/lib/api/services/couponService'
 import { storeService } from '@/lib/api/services/storeService'
@@ -356,9 +356,7 @@ export default function Coupons() {
         </div>
 
         {loading ? (
-          <div className="p-4">
-            <TableSkeleton rows={6} />
-          </div>
+          <LoadingSkeleton rows={10} columns={7} />
         ) : error ? (
           <ErrorState message={error} onRetry={fetchCoupons} />
         ) : coupons.length === 0 ? (

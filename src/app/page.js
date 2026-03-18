@@ -102,7 +102,7 @@ export default function Dashboard() {
 
         setOrgsSummary(
           (storesRes.data?.data ?? storesRes.data ?? []).map((store) => ({
-            name: store.organization ?? store.name ?? '',
+            name: (typeof store.organization === 'object' ? store.organization?.name : store.organization) ?? store.name ?? '',
             stores: store.storeCount ?? store.stores ?? 0,
             status: store.status ?? 'active',
           }))

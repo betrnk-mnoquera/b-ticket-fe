@@ -75,11 +75,10 @@ export default function Organizations() {
       if (searchQuery) params.search = searchQuery
 
       const response = await storeService.getStores(params)
-      const result = response.data || response
 
-      setStores(result.data || [])
-      setTotalPages(result.lastPage || 1)
-      setTotalItems(result.total || 0)
+      setStores(response.data || [])
+      setTotalPages(response.lastPage || response.meta?.lastPage || 1)
+      setTotalItems(response.total || response.meta?.total || 0)
     } catch (err) {
       setError(err.message || 'Failed to load stores')
       setStores([])
@@ -190,10 +189,11 @@ export default function Organizations() {
     }
   }
 
+  const independentCount = stores.filter(s => !s.organizationId && !s.organization).length
   const stats = [
     { icon: 'corporate_fare', label: 'Total Organizations', value: String(organizationsList.length || 0) },
     { icon: 'store', label: 'Total Stores', value: String(totalItems) },
-    { icon: 'storefront', label: 'Independent Stores', value: '-' },
+    { icon: 'storefront', label: 'Independent Stores', value: String(independentCount) },
     { icon: 'payments', label: 'Avg. Revenue/Store', value: '-' },
   ]
 
@@ -365,9 +365,14 @@ export default function Organizations() {
         title="Organizations & Stores"
         subtitle="Manage all organizations and their stores"
         actions={
-          <button onClick={() => { setDrawerOpen(true); setFormData({}) }} className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 flex items-center gap-1.5">
-            <Icon name="add" size={16} /> Add New
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => { setDrawerOpen(true); setDrawerType('organization'); setFormData({}) }} className="px-4 py-2 text-sm font-medium rounded-full border border-border hover:bg-muted flex items-center gap-1.5">
+              <Icon name="add" size={16} /> Add Organization
+            </button>
+            <Link href="/edit-store" className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 flex items-center gap-1.5">
+              <Icon name="add" size={16} /> Add Store
+            </Link>
+          </div>
         }
       />
 
@@ -432,7 +437,7 @@ export default function Organizations() {
                             {Object.entries(customFields).map(([key, val]) => (
                               <div key={key} className="flex items-center gap-1.5">
                                 <span className="text-[10px] text-muted-foreground">{key}:</span>
-                                <span className="text-xs font-medium">{val}</span>
+                                <span className="text-xs font-medium">{val === 'true' ? 'Yes' : val === 'false' ? 'No' : val}</span>
                               </div>
                             ))}
                           </div>
@@ -444,7 +449,7 @@ export default function Organizations() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <button onClick={() => setSelectedStore(store)} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="visibility" size={16} className="text-muted-foreground" /></button>
-                          <button className="p-1.5 rounded-lg hover:bg-muted"><Icon name="edit" size={16} className="text-muted-foreground" /></button>
+                          <Link href={`/edit-store?id=${store.id}`} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="edit" size={16} className="text-muted-foreground" /></Link>
                           <button onClick={() => setDeleteTarget(store)} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="delete" size={16} className="text-destructive" /></button>
                         </div>
                       </td>
@@ -460,7 +465,7 @@ export default function Organizations() {
         )}
       </div>
 
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Add New"
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Add Organization"
         footer={<>
           <button onClick={() => setDrawerOpen(false)} className="px-4 py-2 text-sm font-medium rounded-full border border-border hover:bg-muted">Cancel</button>
           <button onClick={handleSave} disabled={submitting} className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 disabled:opacity-50">
@@ -469,68 +474,10 @@ export default function Organizations() {
         </>}
       >
         <div className="space-y-4">
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Type</label>
-            <div className="grid grid-cols-2 gap-3">
-              {['organization', 'store'].map(t => (
-                <button key={t} onClick={() => { setDrawerType(t); setFormData({}) }}
-                  className={`p-4 rounded-xl border text-center text-sm font-medium capitalize ${drawerType === t ? 'border-primary bg-primary/5 text-primary' : 'border-border hover:bg-muted'}`}>
-                  <Icon name={t === 'organization' ? 'corporate_fare' : 'store'} size={24} className="block mx-auto mb-1" />
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
-          {drawerType === 'organization' ? (
-            <>
-              <FormField label="Organization Name" value={formData.organizationName || ''} onChange={v => handleFormChange('organizationName', v)} />
-              <FormField label="Email" type="email" value={formData.email || ''} onChange={v => handleFormChange('email', v)} />
-              <FormField label="Description" textarea value={formData.description || ''} onChange={v => handleFormChange('description', v)} />
-              <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Logo</label><FileUpload compact /></div>
-            </>
-          ) : (
-            <>
-              <FormField label="Store Name" value={formData.storeName || ''} onChange={v => handleFormChange('storeName', v)} />
-              <FormField label="Organization" select options={[{ label: 'No Organization', value: '' }, ...organizationsList.map(o => ({ label: o.name, value: o.id }))]} value={formData.organizationId || ''} onChange={v => { handleFormChange('organizationId', v); if (!v) handleFormChange('storeType', ''); else if (!formData.storeType) handleFormChange('storeType', 'branch'); }} placeholder="Select Organization" helperText="Create an organization first to link this store" />
-              {formData.organizationId && (
-                <FormField label="Type" select options={[{ label: 'Branch', value: 'branch' }, { label: 'Franchise', value: 'franchise' }]} value={formData.storeType || 'branch'} onChange={v => handleFormChange('storeType', v)} />
-              )}
-              <FormField label="Category" select options={categoriesList.map(c => ({ label: c.name, value: c.id }))} value={formData.lineOfBusinessId || ''} onChange={v => { handleFormChange('lineOfBusinessId', v); handleFormChange('customFields', {}); }} helperText="Add categories in Line of Business settings" />
-              {(() => {
-                const selectedCat = categoriesList.find(c => String(c.id) === String(formData.lineOfBusinessId))
-                const catFields = selectedCat?.fields || []
-                if (catFields.length === 0) return null
-                return (
-                  <div className="space-y-3 pl-3 border-l-2 border-primary/20">
-                    <p className="text-xs font-medium text-muted-foreground">{selectedCat.name} Fields</p>
-                    {catFields.map((f, i) => {
-                      const fieldKey = `cf_${f.name}`
-                      const val = formData.customFields?.[fieldKey] || ''
-                      const onChange = v => handleFormChange('customFields', { ...formData.customFields, [fieldKey]: v })
-                      if (f.type === 'select') {
-                        const opts = (Array.isArray(f.options) ? f.options : []).map(o => ({ label: o, value: o }))
-                        return <FormField key={i} label={f.name} select options={opts} value={val} onChange={onChange} />
-                      }
-                      if (f.type === 'boolean') {
-                        return <FormField key={i} label={f.name} select options={[{ label: 'Yes', value: 'true' }, { label: 'No', value: 'false' }]} value={val} onChange={onChange} />
-                      }
-                      return <FormField key={i} label={f.name} type={f.type === 'number' ? 'number' : 'text'} value={val} onChange={onChange} />
-                    })}
-                  </div>
-                )
-              })()}
-              <div className="grid grid-cols-2 gap-3">
-                <FormField label="Email" type="email" value={formData.email || ''} onChange={v => handleFormChange('email', v)} />
-                <FormField label="Phone" type="tel" value={formData.phone || ''} onChange={v => handleFormChange('phone', v)} />
-              </div>
-              <FormField label="Address" value={formData.address || ''} onChange={v => handleFormChange('address', v)} />
-              <div className="grid grid-cols-2 gap-3">
-                <FormField label="City" value={formData.city || ''} onChange={v => handleFormChange('city', v)} />
-                <FormField label="Country" select options={[{ label: 'Philippines', value: 'Philippines' }, { label: 'Singapore', value: 'Singapore' }, { label: 'Malaysia', value: 'Malaysia' }]} value={formData.country || ''} onChange={v => handleFormChange('country', v)} />
-              </div>
-              <FormField label="Description" textarea value={formData.description || ''} onChange={v => handleFormChange('description', v)} />
-            </>
-          )}
+          <FormField label="Organization Name" value={formData.organizationName || ''} onChange={v => handleFormChange('organizationName', v)} />
+          <FormField label="Email" type="email" value={formData.email || ''} onChange={v => handleFormChange('email', v)} />
+          <FormField label="Description" textarea value={formData.description || ''} onChange={v => handleFormChange('description', v)} />
+          <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Logo</label><FileUpload compact /></div>
         </div>
       </Drawer>
 
