@@ -61,8 +61,11 @@ export function AuthProvider({ children }) {
     }
   }, [router])
 
+  const isSuperAdmin = user?.role?.name === 'Super Admin'
+  const organizationId = user?.organizationId || null
+
   return (
-    <AuthContext.Provider value={{ user, permissions, isAuthenticated, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, permissions, isAuthenticated, isLoading, isSuperAdmin, organizationId, login, logout }}>
       {children}
     </AuthContext.Provider>
   )

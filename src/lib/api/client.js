@@ -36,6 +36,12 @@ async function request(endpoint, options = {}) {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
+    // Handle Laravel validation errors
+    if (error.errors) {
+      const firstField = Object.keys(error.errors)[0];
+      const firstMsg = error.errors[firstField]?.[0] || error.errors[firstField];
+      throw new Error(firstMsg || `Validation failed`);
+    }
     throw new Error(error.message || `Request failed with status ${response.status}`);
   }
 
