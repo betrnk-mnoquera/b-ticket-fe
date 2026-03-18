@@ -9,14 +9,17 @@ import Pagination from '@/components/ui/Pagination'
 import Drawer from '@/components/ui/Drawer'
 import { DeleteModal } from '@/components/ui/Modal'
 import Icon from '@/components/ui/Icon'
-import Accordion from '@/components/ui/Accordion'
+import Accordion, { AccordionGroup } from '@/components/ui/Accordion'
 import FileUpload from '@/components/ui/FileUpload'
 import { useToast } from '@/components/ui/Toast'
 import LoadingSkeleton, { CardSkeleton } from '@/components/ui/LoadingSkeleton'
 import ErrorState from '@/components/ui/ErrorState'
 import { couponService } from '@/lib/api/services/couponService'
 import { storeService } from '@/lib/api/services/storeService'
+import { organizationService } from '@/lib/api/services/organizationService'
+import { useAuth } from '@/lib/auth/AuthContext'
 
+const perPage = 10
 const filters = ['All', 'Active', 'Scheduled', 'For Review', 'Expired']
 
 function formatDiscount(coupon) {
@@ -27,6 +30,12 @@ function formatDiscount(coupon) {
   return coupon.discountValue ?? '—'
 }
 
+function formatDate(dateStr) {
+  if (!dateStr) return '—'
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 function mapFilterToStatus(filter) {
   if (filter === 'All') return undefined
   if (filter === 'For Review') return 'for_review'
@@ -34,8 +43,12 @@ function mapFilterToStatus(filter) {
 }
 
 export default function Coupons() {
+  const { isSuperAdmin, organizationId } = useAuth()
   const [filter, setFilter] = useState('All')
   const [searchQuery, setSearchQuery] = useState('')
+  const [orgFilter, setOrgFilter] = useState('')
+  const [storeFilter, setStoreFilter] = useState('')
+  const [organizations, setOrganizations] = useState([])
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -59,6 +72,7 @@ export default function Coupons() {
 
   // Form state
   const [formData, setFormData] = useState({})
+  const [editingCoupon, setEditingCoupon] = useState(null)
   const [creating, setCreating] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -68,29 +82,32 @@ export default function Coupons() {
       setError(null)
       const params = {
         page,
-        perPage: 10,
+        per_page: perPage,
         ...(mapFilterToStatus(filter) && { status: mapFilterToStatus(filter) }),
         ...(searchQuery && { search: searchQuery }),
+        ...(orgFilter && { organization_id: orgFilter }),
+        ...(storeFilter && { store_id: storeFilter }),
       }
       const res = await couponService.getCoupons(params)
       setCoupons(res.data || res.items || res)
-      setTotalPages(res.meta?.totalPages || res.totalPages || 1)
+      setTotalPages(res.meta?.totalPages || res.lastPage || res.totalPages || 1)
       setTotalItems(res.meta?.total || res.total || 0)
     } catch (err) {
       setError(err.message || 'Failed to load coupons')
     } finally {
       setLoading(false)
     }
-  }, [page, filter, searchQuery])
+  }, [page, filter, searchQuery, orgFilter, storeFilter])
 
   const fetchStats = useCallback(async () => {
     try {
       const res = await couponService.getStats()
+      const d = res.data || res
       setStats([
-        { icon: 'confirmation_number', label: 'Total Coupons', value: (res.totalCoupons ?? 0).toLocaleString() },
-        { icon: 'check_circle', label: 'Active Coupons', value: (res.activeCoupons ?? 0).toLocaleString() },
-        { icon: 'redeem', label: 'Total Redemptions', value: (res.totalRedemptions ?? 0).toLocaleString() },
-        { icon: 'trending_up', label: 'Avg. Redemption Rate', value: `${res.avgRedemptionRate ?? 0}%` },
+        { icon: 'confirmation_number', label: 'Total Coupons', value: (d.totalCoupons ?? 0).toLocaleString(), subtitle: `+${d.newThisMonth ?? 0} this month` },
+        { icon: 'check_circle', label: 'Active Coupons', value: (d.activeCoupons ?? 0).toLocaleString(), subtitle: 'Currently live' },
+        { icon: 'redeem', label: 'Total Redemptions', value: (d.totalRedemptions ?? 0).toLocaleString() },
+        { icon: 'trending_up', label: 'Avg. Redemption Rate', value: `${d.avgRedemptionRate ?? 0}%` },
       ])
     } catch {
       setStats([
@@ -104,12 +121,28 @@ export default function Coupons() {
 
   const fetchStores = useCallback(async () => {
     try {
-      const res = await storeService.getStores({ perPage: 100 })
+      const params = { perPage: 100 }
+      // Org admins only see their own stores
+      if (!isSuperAdmin && organizationId) {
+        params.organization_id = organizationId
+      }
+      const res = await storeService.getStores(params)
       setStores(res.data || res.items || res)
     } catch {
       setStores([])
     }
-  }, [])
+  }, [isSuperAdmin, organizationId])
+
+  const fetchOrganizations = useCallback(async () => {
+    if (!isSuperAdmin) return
+    try {
+      const res = await organizationService.getOrganizations({ perPage: 100 })
+      const result = res.data || res
+      setOrganizations(result.data || result || [])
+    } catch {
+      setOrganizations([])
+    }
+  }, [isSuperAdmin])
 
   useEffect(() => {
     fetchCoupons()
@@ -118,12 +151,13 @@ export default function Coupons() {
   useEffect(() => {
     fetchStats()
     fetchStores()
-  }, [fetchStats, fetchStores])
+    fetchOrganizations()
+  }, [fetchStats, fetchStores, fetchOrganizations])
 
   // Reset to page 1 when filter or search changes
   useEffect(() => {
     setPage(1)
-  }, [filter, searchQuery])
+  }, [filter, searchQuery, orgFilter, storeFilter])
 
   const handleFilterChange = (f) => {
     setFilter(f)
@@ -141,7 +175,7 @@ export default function Coupons() {
         couponService.getCoupon(coupon.id),
         couponService.getRedemptions(coupon.id),
       ])
-      setDetailData(detail)
+      setDetailData(detail.data || detail)
       setRedemptions(redemptionRes.data || redemptionRes.items || redemptionRes)
     } catch {
       // Fall back to list-level data
@@ -152,17 +186,124 @@ export default function Coupons() {
     }
   }
 
+  const openEditDrawer = (coupon) => {
+    setEditingCoupon(coupon)
+    setFormData({
+      name: coupon.name || '',
+      code: coupon.code || '',
+      status: coupon.status || '',
+      storeName: coupon.storeName || '',
+      storeId: coupon.storeId || '',
+      description: coupon.termsAndConditions || coupon.description || '',
+      discountType: coupon.discountType || 'percentage',
+      discountValue: coupon.discountValue || '',
+      maxDiscountCap: coupon.maxDiscountCap || '',
+      minSpend: coupon.minSpend || '',
+      usageLimitPerUser: coupon.usageLimitPerUser || '',
+      totalRedemptionLimit: coupon.maxRedemptions || '',
+      validFrom: coupon.validFrom ? coupon.validFrom.split('T')[0] : '',
+      validUntil: coupon.validUntil ? coupon.validUntil.split('T')[0] : '',
+      validDays: coupon.validDays || '',
+      validHours: coupon.validHours || '',
+      products: coupon.products || '',
+      plan: coupon.plan || '',
+      customerEligibility: coupon.customerEligibility || '',
+    })
+    setDiscountType(coupon.discountType || 'percentage')
+    setDrawerOpen(true)
+  }
+
+  const closeDrawer = () => {
+    setDrawerOpen(false)
+    setFormData({})
+    setEditingCoupon(null)
+  }
+
+  const buildPayload = () => {
+    const dt = discountType || formData.discountType || 'percentage'
+    let dv = formData.discountValue || '0'
+    if (dt === 'bogo') {
+      dv = `${formData.buyQuantity || 1}:${formData.getQuantity || 1}`
+    } else if (dt === 'free_shipping') {
+      dv = '0'
+    }
+
+    return {
+      name: formData.name || '',
+      code: formData.code || '',
+      storeId: formData.storeId || null,
+      storeName: formData.storeName || '',
+      organizationId: (() => {
+        const store = stores.find(s => s.id === formData.storeId || (s.storeName || s.name) === formData.storeName)
+        return store?.organizationId || store?.organization?.id || null
+      })(),
+      organizationName: (() => {
+        const store = stores.find(s => s.id === formData.storeId || (s.storeName || s.name) === formData.storeName)
+        return store?.organization?.name || ''
+      })(),
+      products: formData.products || '',
+      discountType: dt,
+      discountValue: String(dv),
+      minSpend: formData.minSpend ? Number(formData.minSpend) : null,
+      maxDiscountCap: formData.maxDiscountCap ? Number(formData.maxDiscountCap) : null,
+      maxRedemptions: formData.totalRedemptionLimit ? Number(formData.totalRedemptionLimit) : null,
+      validFrom: formData.validFrom || null,
+      validUntil: formData.validUntil || null,
+      termsAndConditions: formData.description || '',
+      usageLimitPerUser: formData.usageLimitPerUser || null,
+      validDays: formData.validDays || null,
+      validHours: formData.validHours || null,
+      plan: formData.plan || null,
+      customerEligibility: formData.customerEligibility || null,
+    }
+  }
+
+  const validateForm = () => {
+    if (!formData.name) { toast('Coupon name is required'); return false }
+    if (!formData.code) { toast('Coupon code is required'); return false }
+    if (!discountType) { toast('Discount type is required'); return false }
+    if (discountType !== 'bogo' && discountType !== 'free_shipping' && !formData.discountValue) {
+      toast('Discount value is required'); return false
+    }
+    if (!formData.validFrom) { toast('Valid from date is required'); return false }
+    if (!formData.validUntil) { toast('Valid until date is required'); return false }
+    if (new Date(formData.validUntil) <= new Date(formData.validFrom)) {
+      toast('Valid until must be after valid from'); return false
+    }
+    return true
+  }
+
   const handleCreate = async () => {
+    if (!validateForm()) return
     try {
       setCreating(true)
-      await couponService.createCoupon(formData)
-      setDrawerOpen(false)
-      setFormData({})
+      await couponService.createCoupon(buildPayload())
+      closeDrawer()
       toast('Coupon created successfully')
       fetchCoupons()
       fetchStats()
     } catch (err) {
       toast(err.message || 'Failed to create coupon')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const handleUpdate = async () => {
+    if (!editingCoupon) return
+    if (!validateForm()) return
+    try {
+      setCreating(true)
+      await couponService.updateCoupon(editingCoupon.id, buildPayload())
+      closeDrawer()
+      toast('Coupon updated successfully')
+      fetchCoupons()
+      fetchStats()
+      if (selected?.id === editingCoupon.id) {
+        handleSelectCoupon(editingCoupon)
+      }
+    } catch (err) {
+      toast(err.message || 'Failed to update coupon')
     } finally {
       setCreating(false)
     }
@@ -187,6 +328,13 @@ export default function Coupons() {
 
   const updateFormField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const generateCouponCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    const prefix = (formData.name || '').replace(/[^a-zA-Z]/g, '').substring(0, 4).toUpperCase()
+    const random = Array.from({ length: prefix ? 4 : 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+    return prefix ? `${prefix}${random}` : random
   }
 
   // Detail view
@@ -220,7 +368,7 @@ export default function Coupons() {
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setDrawerOpen(true)} className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 flex items-center gap-1.5">
+              <button onClick={() => openEditDrawer(c)} className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 flex items-center gap-1.5">
                 <Icon name="edit" size={14} /> Edit
               </button>
               <button onClick={() => setDeleteTarget(c)} className="px-4 py-2 text-sm font-medium rounded-full border border-border hover:bg-error-bg hover:text-error-fg flex items-center gap-1.5">
@@ -250,13 +398,15 @@ export default function Coupons() {
                   <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                     {[
                       ['Code', c.code],
-                      ['Discount Type', c.discountType || '—'],
+                      ['Discount Type', c.discountType === 'percentage' ? 'Percentage' : c.discountType === 'fixed' ? 'Fixed Amount' : c.discountType === 'bogo' ? 'Buy X Get Y Free' : c.discountType || '—'],
                       ['Discount Value', discount],
-                      ['Min Spend', c.minSpend != null ? `₱${c.minSpend}` : '—'],
-                      ['Max Discount Cap', c.maxDiscountCap != null ? `₱${c.maxDiscountCap}` : '—'],
-                      ['Usage Limit', c.usageLimitPerUser != null ? `${c.usageLimitPerUser} per user` : '—'],
-                      ['Valid From', c.validFrom || '—'],
-                      ['Valid Until', c.validUntil || '—'],
+                      ['Min Spend', c.minSpend != null ? `₱${Number(c.minSpend).toLocaleString()}` : '—'],
+                      ['Max Discount Cap', c.maxDiscountCap != null ? `₱${Number(c.maxDiscountCap).toLocaleString()}` : '—'],
+                      ['Max Redemptions', c.maxRedemptions != null ? Number(c.maxRedemptions).toLocaleString() : '—'],
+                      ['Products & Services', c.products || 'All Menu Items'],
+                      ['Valid From', formatDate(c.validFrom)],
+                      ['Valid Until', formatDate(c.validUntil)],
+                      ['Status', c.status || '—'],
                     ].map(([l, v], i) => (
                       <div key={i}><div className="text-xs text-muted-foreground">{l}</div><div className="text-sm font-medium mt-0.5">{v}</div></div>
                     ))}
@@ -292,7 +442,7 @@ export default function Coupons() {
               <div className="space-y-4">
                 <div className="bg-card border border-border rounded-xl p-5">
                   <h3 className="text-sm font-semibold mb-2">Description</h3>
-                  <p className="text-sm text-muted-foreground">{c.description || `Get ${discount} off at ${storeName}. Limited time offer!`}</p>
+                  <p className="text-sm text-muted-foreground">{c.termsAndConditions || c.description || `Get ${discount} off at ${storeName}. Limited time offer!`}</p>
                 </div>
                 <div className="bg-card border border-border rounded-xl p-5">
                   <h3 className="text-sm font-semibold mb-3">Store</h3>
@@ -308,12 +458,13 @@ export default function Coupons() {
                   <h3 className="text-sm font-semibold mb-3">Activity</h3>
                   <div className="space-y-3">
                     {(c.activity || [
-                      { label: 'Coupon created', timeAgo: '—' },
-                      { label: 'Status changed to active', timeAgo: '—' },
+                      { label: 'Coupon created', timeAgo: c.createdAt ? formatDate(c.createdAt) : '—' },
+                      ...(c.updatedAt && c.updatedAt !== c.createdAt ? [{ label: 'Last updated', timeAgo: formatDate(c.updatedAt) }] : []),
+                      ...(c.status === 'active' ? [{ label: 'Status changed to active', timeAgo: formatDate(c.updatedAt || c.createdAt) }] : []),
                     ]).map((item, i) => (
                       <div key={i} className="flex items-start gap-2.5">
                         <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-                        <div><div className="text-sm">{item.label || item}</div><div className="text-xs text-muted-foreground">{item.timeAgo || `${i + 1}d ago`}</div></div>
+                        <div><div className="text-sm">{item.label || item}</div><div className="text-xs text-muted-foreground">{item.timeAgo || '—'}</div></div>
                       </div>
                     ))}
                   </div>
@@ -337,7 +488,7 @@ export default function Coupons() {
         title="Coupons"
         subtitle="Create and manage discount coupons"
         actions={
-          <button onClick={() => setDrawerOpen(true)} className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 flex items-center gap-1.5">
+          <button onClick={() => { setFormData({}); setEditingCoupon(null); setDiscountType('percentage'); setDrawerOpen(true) }} className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 flex items-center gap-1.5">
             <Icon name="add" size={16} /> Add Coupon
           </button>
         }
@@ -352,11 +503,37 @@ export default function Coupons() {
 
       <div className="bg-card border border-border rounded-xl shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
         <div className="p-4 border-b border-border">
-          <FilterBar filters={filters} activeFilter={filter} onFilterChange={handleFilterChange} onSearch={handleSearch} />
+          <FilterBar
+            filters={filters}
+            activeFilter={filter}
+            onFilterChange={handleFilterChange}
+            onSearch={handleSearch}
+            searchPlaceholder="Search coupons by name, code, or store..."
+            dropdowns={isSuperAdmin ? [
+              {
+                label: 'Organization',
+                options: [{ value: '', label: 'All Organizations' }, ...organizations.map(o => ({ value: String(o.id), label: o.name }))],
+                value: orgFilter,
+                onChange: (v) => { setOrgFilter(v); setStoreFilter('') },
+              },
+              {
+                label: 'Store',
+                options: [
+                  { value: '', label: 'All Stores' },
+                  ...(orgFilter
+                    ? stores.filter(s => String(s.organizationId) === orgFilter || String(s.organization?.id) === orgFilter)
+                    : stores
+                  ).map(s => ({ value: String(s.id), label: s.storeName || s.name })),
+                ],
+                value: storeFilter,
+                onChange: setStoreFilter,
+              },
+            ] : undefined}
+          />
         </div>
 
         {loading ? (
-          <LoadingSkeleton rows={10} columns={7} />
+          <LoadingSkeleton rows={10} columns={8} />
         ) : error ? (
           <ErrorState message={error} onRetry={fetchCoupons} />
         ) : coupons.length === 0 ? (
@@ -370,11 +547,12 @@ export default function Coupons() {
               <tr className="border-b border-border text-xs text-muted-foreground">
                 <th className="text-left px-4 py-3 font-medium">Coupon</th>
                 <th className="text-left px-4 py-3 font-medium">Store</th>
+                <th className="text-left px-4 py-3 font-medium">Products & Services</th>
                 <th className="text-left px-4 py-3 font-medium">Discount</th>
                 <th className="text-left px-4 py-3 font-medium">Redemptions</th>
                 <th className="text-left px-4 py-3 font-medium">Valid Period</th>
                 <th className="text-left px-4 py-3 font-medium">Status</th>
-                <th className="text-left px-4 py-3 font-medium">Actions</th>
+                <th className="text-right px-4 py-3 font-medium"></th>
               </tr>
             </thead>
             <tbody>
@@ -382,7 +560,7 @@ export default function Coupons() {
                 const storeName = c.storeName || c.store || '—'
                 const discount = formatDiscount(c)
                 return (
-                  <tr key={c.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                  <tr key={c.id} onClick={() => handleSelectCoupon(c)} className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: (c.color || '#205C50') + '20' }}>
@@ -395,19 +573,19 @@ export default function Coupons() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-muted">
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                         <Icon name="store" size={12} /> {storeName}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-muted-foreground">{c.products || 'All Menu Items'}</td>
                     <td className="px-4 py-3 font-semibold">{discount}</td>
                     <td className="px-4 py-3">{(c.redemptions ?? 0).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{c.validFrom || '—'} – {c.validUntil || '—'}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{formatDate(c.validFrom)} - {formatDate(c.validUntil)}</td>
                     <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => handleSelectCoupon(c)} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="visibility" size={16} className="text-muted-foreground" /></button>
-                        <button onClick={() => setDrawerOpen(true)} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="edit" size={16} className="text-muted-foreground" /></button>
-                        <button onClick={() => setDeleteTarget(c)} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="delete" size={16} className="text-destructive" /></button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={(e) => { e.stopPropagation(); openEditDrawer(c) }} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="edit" size={16} className="text-muted-foreground" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(c) }} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="delete" size={16} className="text-muted-foreground" /></button>
                       </div>
                     </td>
                   </tr>
@@ -418,23 +596,51 @@ export default function Coupons() {
         )}
 
         <div className="px-4 py-3 border-t border-border">
-          <Pagination currentPage={page} totalPages={totalPages} totalItems={totalItems} itemsPerPage={10} onPageChange={setPage} />
+          <Pagination currentPage={page} totalPages={totalPages} totalItems={totalItems} itemsPerPage={perPage} onPageChange={setPage} />
         </div>
       </div>
 
-      <Drawer open={drawerOpen} onClose={() => { setDrawerOpen(false); setFormData({}) }} title="Add Coupon" width="w-[560px]"
+      <Drawer open={drawerOpen} onClose={closeDrawer} title={editingCoupon ? 'Edit Coupon' : 'Add Coupon'} width="w-[560px]"
         footer={<>
-          <button onClick={() => { setDrawerOpen(false); setFormData({}) }} className="px-4 py-2 text-sm font-medium rounded-full border border-border hover:bg-muted">Cancel</button>
-          <button onClick={handleCreate} disabled={creating} className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 disabled:opacity-50">
-            {creating ? 'Creating...' : 'Create Coupon'}
+          <button onClick={closeDrawer} className="px-4 py-2 text-sm font-medium rounded-full border border-border hover:bg-muted">Cancel</button>
+          <button onClick={editingCoupon ? handleUpdate : handleCreate} disabled={creating} className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 disabled:opacity-50">
+            {creating ? (editingCoupon ? 'Updating...' : 'Creating...') : (editingCoupon ? 'Update Coupon' : 'Create Coupon')}
           </button>
         </>}
       >
-        <div className="space-y-4">
-          <Accordion title="Coupon Info" defaultOpen>
+        <AccordionGroup defaultOpen="Coupon Info">
+          <Accordion title="Coupon Info">
             <div className="space-y-3">
-              <FormField label="Coupon Name" value={formData.name} onChange={(v) => updateFormField('name', v)} />
-              <FormField label="Code" placeholder="e.g. SUMMER20" value={formData.code} onChange={(v) => updateFormField('code', v)} />
+              <FormField label="Coupon Name" value={formData.name} onChange={(v) => {
+                updateFormField('name', v)
+                // Auto-generate code if code is empty or was auto-generated
+                if (!formData.code || formData._autoCode) {
+                  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+                  const prefix = (v || '').replace(/[^a-zA-Z]/g, '').substring(0, 4).toUpperCase()
+                  const random = Array.from({ length: prefix ? 4 : 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+                  updateFormField('code', prefix ? `${prefix}${random}` : random)
+                  updateFormField('_autoCode', true)
+                }
+              }} />
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Code</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    className="flex-1 px-3 py-2 text-sm rounded-lg border border-border bg-muted/30 focus:outline-none focus:ring-2 focus:ring-ring uppercase"
+                    placeholder="e.g. SUMMER20"
+                    value={formData.code || ''}
+                    onChange={(e) => { updateFormField('code', e.target.value.toUpperCase()); updateFormField('_autoCode', false) }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { updateFormField('code', generateCouponCode()); updateFormField('_autoCode', true) }}
+                    className="px-3 py-2 text-xs font-medium rounded-lg border border-border hover:bg-muted flex items-center gap-1"
+                  >
+                    <Icon name="autorenew" size={14} /> Generate
+                  </button>
+                </div>
+              </div>
               <FormField label="Status" select options={['Active', 'Scheduled', 'Paused']} value={formData.status} onChange={(v) => updateFormField('status', v)} />
               <FormField label="Store" select options={stores.map(s => s.storeName || s.name)} value={formData.storeName} onChange={(v) => {
                 const store = stores.find(s => (s.storeName || s.name) === v)
@@ -445,21 +651,41 @@ export default function Coupons() {
               <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Coupon Image</label><FileUpload compact accept="JPG, PNG up to 5MB" /></div>
             </div>
           </Accordion>
-          <Accordion title="Discount Configuration">
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Discount Type</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[['percentage', 'Percentage'], ['fixed', 'Fixed Amount'], ['bogo', 'Buy X Get Y']].map(([k, l]) => (
-                    <button key={k} onClick={() => { setDiscountType(k); updateFormField('discountType', k) }}
-                      className={`px-3 py-2 text-xs font-medium rounded-lg border ${discountType === k ? 'border-primary bg-primary/5 text-primary' : 'border-border hover:bg-muted'}`}>
-                      {l}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <FormField label="Discount Value" type="number" placeholder={discountType === 'percentage' ? 'e.g. 20' : 'e.g. 50'} value={formData.discountValue} onChange={(v) => updateFormField('discountValue', v)} />
-              <FormField label="Max Discount Cap" type="number" placeholder="e.g. 100" value={formData.maxDiscountCap} onChange={(v) => updateFormField('maxDiscountCap', v)} />
+          <Accordion title="Discount Configuration" subtitle="Type, value & discount cap" icon="local_offer">
+            <div className="space-y-4">
+              <FormField label="Discount Type" select options={['Percentage', 'Fixed Amount', 'Buy X Get Y Free']} value={
+                discountType === 'percentage' ? 'Percentage' : discountType === 'fixed' ? 'Fixed Amount' : discountType === 'bogo' ? 'Buy X Get Y Free' : ''
+              } onChange={(v) => {
+                const key = v === 'Percentage' ? 'percentage' : v === 'Fixed Amount' ? 'fixed' : v === 'Buy X Get Y Free' ? 'bogo' : ''
+                setDiscountType(key)
+                updateFormField('discountType', key)
+              }} />
+              {discountType === 'bogo' ? (
+                <>
+                  <div className="rounded-lg border-l-4 border-primary bg-muted/30 p-4 space-y-3">
+                    <div className="text-xs font-semibold text-primary uppercase tracking-wide">Buy</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField label="Quantity" type="number" placeholder="1" value={formData.buyQuantity} onChange={(v) => updateFormField('buyQuantity', v)} />
+                      <FormField label="Product(s)" select options={formData.storeName ? ['Any Item', 'Specific Products'] : []} placeholder={!formData.storeName ? 'Select store first...' : undefined} value={formData.buyProduct} onChange={(v) => updateFormField('buyProduct', v)} />
+                    </div>
+                  </div>
+                  <div className="rounded-lg border-l-4 border-orange-400 bg-muted/30 p-4 space-y-3">
+                    <div className="text-xs font-semibold text-orange-500 uppercase tracking-wide">Get Free</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField label="Quantity" type="number" placeholder="1" value={formData.getQuantity} onChange={(v) => updateFormField('getQuantity', v)} />
+                      <FormField label="Product(s)" select options={formData.storeName ? ['Any Item', 'Specific Products'] : []} placeholder={!formData.storeName ? 'Select store first...' : undefined} value={formData.getProduct} onChange={(v) => updateFormField('getProduct', v)} />
+                    </div>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg px-4 py-3 text-sm text-center">
+                    Buy <strong>{formData.buyQuantity || 1}</strong> {formData.buyProduct?.toLowerCase() === 'specific products' ? 'selected item' : 'any item'}, get <strong>{formData.getQuantity || 1}</strong> item <strong>FREE</strong>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <FormField label="Discount Value" type="number" placeholder={discountType === 'percentage' ? 'e.g. 20' : 'e.g. 50'} value={formData.discountValue} onChange={(v) => updateFormField('discountValue', v)} />
+                  <FormField label="Max Discount Cap" type="number" placeholder="e.g. 100" value={formData.maxDiscountCap} onChange={(v) => updateFormField('maxDiscountCap', v)} />
+                </>
+              )}
             </div>
           </Accordion>
           <Accordion title="Rules & Limits">
@@ -486,7 +712,7 @@ export default function Coupons() {
               <FormField label="Customer Eligibility" select options={['All Customers', 'New Customers', 'Returning Customers']} value={formData.customerEligibility} onChange={(v) => updateFormField('customerEligibility', v)} />
             </div>
           </Accordion>
-        </div>
+        </AccordionGroup>
       </Drawer>
 
       <DeleteModal open={!!deleteTarget} onClose={() => setDeleteTarget(null)}
