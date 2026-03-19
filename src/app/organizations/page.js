@@ -825,7 +825,12 @@ export default function Organizations() {
       />
 
       <div className="grid grid-cols-4 gap-4 mb-6">
-        {stats.map((s, i) => <StatsCard key={i} {...s} />)}
+        {stats.map((s, i) => (
+          <button key={i} onClick={() => { if (i === 0) { setViewMode('organizations') } else if (i === 1) { setViewMode('stores'); setFilter('All'); setPage(1) } }}
+            className="text-left hover:-translate-y-0.5 transition-transform duration-200">
+            <StatsCard {...s} />
+          </button>
+        ))}
       </div>
 
       {/* View Mode Toggle */}
@@ -842,9 +847,15 @@ export default function Organizations() {
       {viewMode === 'organizations' && (
         <div className="bg-card border border-border rounded-xl shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
           {organizationsList.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Icon name="corporate_fare" size={40} className="text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">No organizations found</p>
+            <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
+              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-5">
+                <Icon name="corporate_fare" size={36} className="text-primary" />
+              </div>
+              <h3 className="text-lg font-bold mb-2">No organizations yet</h3>
+              <p className="text-sm text-muted-foreground mb-6 max-w-md">Create an organization to group and manage multiple stores.</p>
+              <button onClick={() => { setOrgForm({ name: '', description: '', contactEmail: '', contactPhone: '', website: '' }); setEditingOrg(null); setOrgDrawerOpen(true) }} className="px-6 py-3 text-sm font-semibold rounded-full bg-primary text-white hover:opacity-90 flex items-center gap-2 shadow-lg shadow-primary/20">
+                <Icon name="add" size={18} /> Add Organization
+              </button>
             </div>
           ) : (
             <table className="w-full text-sm">
@@ -965,9 +976,15 @@ export default function Organizations() {
         ) : error ? (
           <ErrorState message={error} onRetry={fetchStores} />
         ) : stores.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Icon name="store" size={40} className="text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">No stores found</p>
+          <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
+            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-5">
+              <Icon name="store" size={36} className="text-primary" />
+            </div>
+            <h3 className="text-lg font-bold mb-2">Add your first store!</h3>
+            <p className="text-sm text-muted-foreground mb-6 max-w-md">Register a store to start managing your business operations.</p>
+            <Link href="/edit-store" className="px-6 py-3 text-sm font-semibold rounded-full bg-primary text-white hover:opacity-90 flex items-center gap-2 shadow-lg shadow-primary/20">
+              <Icon name="add" size={18} /> Add Store
+            </Link>
           </div>
         ) : (
           <>

@@ -750,7 +750,12 @@ export default function Coupons() {
 
       <div className="grid grid-cols-4 gap-4 mb-6">
         {stats.length > 0
-          ? stats.map((s, i) => <StatsCard key={i} {...s} />)
+          ? stats.map((s, i) => (
+            <button key={i} onClick={() => { if (i === 1) { setFilter('Active'); setPage(1) } }}
+              className="text-left hover:-translate-y-0.5 transition-transform duration-200">
+              <StatsCard {...s} />
+            </button>
+          ))
           : Array.from({ length: 4 }).map((_, i) => <CardSkeleton key={i} />)
         }
       </div>
@@ -791,9 +796,15 @@ export default function Coupons() {
         ) : error ? (
           <ErrorState message={error} onRetry={fetchCoupons} />
         ) : coupons.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Icon name="confirmation_number" size={40} className="text-muted-foreground mb-3" />
-            <p className="text-sm text-muted-foreground">No coupons found</p>
+          <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
+            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-5">
+              <Icon name="local_offer" size={36} className="text-primary" />
+            </div>
+            <h3 className="text-lg font-bold mb-2">Start rewarding your customers!</h3>
+            <p className="text-sm text-muted-foreground mb-6 max-w-md">Create your first coupon to drive sales and build customer loyalty.</p>
+            <button onClick={() => { setFormData({}); setEditingCoupon(null); setDiscountType('percentage'); setDrawerOpen(true) }} className="px-6 py-3 text-sm font-semibold rounded-full bg-primary text-white hover:opacity-90 flex items-center gap-2 shadow-lg shadow-primary/20">
+              <Icon name="add" size={18} /> Create Your First Coupon
+            </button>
           </div>
         ) : (
           <table className="w-full text-sm">

@@ -204,7 +204,9 @@ export default function Dashboard() {
       ) : (
         <div className="grid grid-cols-4 gap-4 mb-6">
           {dashboardStats.map((stat, i) => (
-            <StatsCard key={i} {...stat} />
+            <div key={i} className="hover:-translate-y-0.5 transition-transform duration-200">
+              <StatsCard {...stat} />
+            </div>
           ))}
         </div>
       )}
