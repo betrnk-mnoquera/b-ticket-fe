@@ -18,6 +18,9 @@ export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true)
 
   const isAuthenticated = !!user
+  const userType = user?.userType || 'admin'
+  const isMerchant = userType === 'merchant'
+  const isAdmin = userType === 'admin'
 
   const fetchUser = useCallback(async () => {
     try {
@@ -65,7 +68,7 @@ export function AuthProvider({ children }) {
   const organizationId = user?.organizationId || null
 
   return (
-    <AuthContext.Provider value={{ user, permissions, isAuthenticated, isLoading, isSuperAdmin, organizationId, login, logout }}>
+    <AuthContext.Provider value={{ user, permissions, isAuthenticated, isLoading, isSuperAdmin, isMerchant, isAdmin, userType, organizationId, login, logout }}>
       {children}
     </AuthContext.Provider>
   )
