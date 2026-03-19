@@ -23,15 +23,41 @@ const perPage = 10
 const filters = ['All', 'Active', 'Scheduled', 'For Review', 'Expired']
 
 function formatDiscount(coupon) {
+  // If coupon has tiers, show tier summary
+  const tiers = coupon.tiers
+  if (tiers && Array.isArray(tiers) && tiers.length > 0) {
+    return tiers.map(t => {
+      const label = `${t.buyQuantity || '?'}+${t.freeQuantity || '?'} Free`
+      return t.condition ? `${label} (${t.condition})` : label
+    }).join(' / ')
+  }
   if (coupon.discountType === 'percentage') return `${coupon.discountValue}%`
-  if (coupon.discountType === 'fixed') return `₱${coupon.discountValue}`
+  if (coupon.discountType === 'fixed') return `₱${Number(coupon.discountValue || 0).toLocaleString()}`
   if (coupon.discountType === 'bogo') {
     const [buy, free] = (coupon.discountValue || '1:1').split(':')
-    return `${buy}+${free} Free`
+    let productName = ''
+    let getAt = ''
+    try {
+      const p = JSON.parse(coupon.products)
+      productName = p.buy && p.buy !== 'Any Item' ? ` ${p.buy}` : ''
+      getAt = p.getItemAt || ''
+    } catch {}
+    if (getAt && getAt !== 'Free') return `${buy}+${free}${productName} at ${getAt}`
+    return `${buy}+${free} Free${productName}`
   }
-  if (coupon.discountType === 'free_item') return `Free ${coupon.discountValue || 'Item'}`
-  if (coupon.discountType === 'bundle') return `₱${Number(coupon.discountValue || 0).toLocaleString()} Bundle`
-  if (coupon.discountType === 'free_shipping') return 'Free Ship'
+  if (coupon.discountType === 'free_item') {
+    const items = (coupon.discountValue || 'Item').split('\n').filter(Boolean)
+    return `Free ${items.join(' + ')}`
+  }
+  if (coupon.discountType === 'bundle') {
+    let comboCount = ''
+    try {
+      const p = JSON.parse(coupon.products)
+      if (p.combos?.length) comboCount = ` (${p.combos.length} combo${p.combos.length > 1 ? 's' : ''})`
+    } catch {}
+    return `₱${Number(coupon.discountValue || 0).toLocaleString()} Bundle${comboCount}`
+  }
+  if (coupon.discountType === 'free_shipping') return 'Free Shipping'
   return coupon.discountValue ?? '—'
 }
 
@@ -211,26 +237,56 @@ export default function Coupons() {
 
   const openEditDrawer = (coupon) => {
     setEditingCoupon(coupon)
+    const restrictions = coupon.restrictions || {}
+    // Parse BOGO quantities from discountValue (e.g., "4:2")
+    const [bogoB, bogoG] = coupon.discountType === 'bogo' ? (coupon.discountValue || '1:1').split(':') : ['', '']
+    // Parse BOGO products from products JSON
+    let buyProduct = 'Any Item', buyProductName = '', getProduct = 'Same as Buy', getProductName = '', getItemAt = 'Free', getItemDiscount = ''
+    if (coupon.discountType === 'bogo') {
+      try {
+        const p = JSON.parse(coupon.products)
+        // Restore from rich data if available
+        if (p.buyProduct) buyProduct = p.buyProduct
+        if (p.buyProductName) buyProductName = p.buyProductName
+        if (p.getProduct) getProduct = p.getProduct
+        if (p.getProductName) getProductName = p.getProductName
+        if (p.getItemAt) getItemAt = p.getItemAt
+        if (p.getItemDiscount) getItemDiscount = p.getItemDiscount
+        // Fallback to legacy format
+        if (!p.buyProduct) {
+          if (p.buy && p.buy !== 'Any Item') { buyProduct = 'Specific Product'; buyProductName = p.buy }
+          if (p.get && p.get !== 'Any Item' && p.get !== p.buy) { getProduct = 'Specific Product'; getProductName = p.get }
+          else if (p.get === p.buy && p.buy !== 'Any Item') { getProduct = 'Same as Buy' }
+        }
+      } catch { /* products might not be JSON for BOGO */ }
+    }
     setFormData({
       name: coupon.name || '',
       code: coupon.code || '',
       status: coupon.status || '',
       storeName: coupon.storeName || '',
       storeId: coupon.storeId || '',
-      description: coupon.termsAndConditions || coupon.description || '',
+      description: coupon.description || '',
+      termsAndConditions: coupon.termsAndConditions || '',
       discountType: coupon.discountType || 'percentage',
-      discountValue: coupon.discountValue || '',
+      discountValue: ['bogo', 'free_item', 'bundle', 'free_shipping'].includes(coupon.discountType) ? '' : (coupon.discountValue || ''),
       maxDiscountCap: coupon.maxDiscountCap || '',
       minSpend: coupon.minSpend || '',
       usageLimitPerUser: coupon.usageLimitPerUser || '',
       totalRedemptionLimit: coupon.maxRedemptions || '',
       validFrom: coupon.validFrom ? coupon.validFrom.split('T')[0] : '',
       validUntil: coupon.validUntil ? coupon.validUntil.split('T')[0] : '',
-      validDays: coupon.validDays || '',
-      validHours: coupon.validHours || '',
       products: coupon.products || '',
-      plan: coupon.plan || '',
       customerEligibility: coupon.customerEligibility || '',
+      // BOGO fields
+      buyQuantity: bogoB || '',
+      getQuantity: bogoG || '',
+      buyProduct,
+      buyProductName,
+      getProduct,
+      getProductName,
+      getItemAt: getItemAt || 'Free',
+      getItemDiscount: getItemDiscount || '',
       // Free item fields
       freeItemName: coupon.discountType === 'free_item' ? (coupon.discountValue || '') : '',
       freeItemMinSpend: coupon.discountType === 'free_item' ? (coupon.minSpend || '') : '',
@@ -241,10 +297,16 @@ export default function Coupons() {
       bundleCombos: (() => { try { const p = JSON.parse(coupon.products); return p.combos || [] } catch { return [] } })(),
       // Tiers & restrictions
       tiers: coupon.tiers || [],
-      restrictions: coupon.restrictions || {},
-      diningMode: coupon.restrictions?.diningMode || '',
-      applicableTo: coupon.restrictions?.applicableTo || '',
-      restrictionNotes: coupon.restrictions?.notes || '',
+      restrictions: restrictions,
+      diningMode: restrictions.diningMode || '',
+      minCompanions: restrictions.minCompanions || '',
+      specialValidity: restrictions.specialValidity || 'None',
+      // Limited time redemption
+      limitedTimeRedemption: restrictions.limitedTimeRedemption || false,
+      redemptionWindowUnit: restrictions.redemptionWindowUnit || 'Days',
+      redemptionWindowValue: restrictions.redemptionWindowValue || '',
+      redemptionStartTime: restrictions.redemptionStartTime || '',
+      redemptionEndTime: restrictions.redemptionEndTime || '',
     })
     setDiscountType(coupon.discountType || 'percentage')
     setDrawerOpen(true)
@@ -262,10 +324,18 @@ export default function Coupons() {
     let ms = formData.minSpend ? Number(formData.minSpend) : null
     if (dt === 'bogo') {
       dv = `${formData.buyQuantity || 1}:${formData.getQuantity || 1}`
-      // Include product info in products field for BOGO
       const buyProd = formData.buyProduct === 'Specific Product' ? formData.buyProductName : 'Any Item'
       const getProd = formData.getProduct === 'Specific Product' ? formData.getProductName : formData.getProduct === 'Same as Buy' ? buyProd : 'Any Item'
-      formData._bogoProducts = { buy: buyProd, get: getProd }
+      formData._bogoProducts = {
+        buy: buyProd,
+        get: getProd,
+        buyProduct: formData.buyProduct || 'Any Item',
+        getProduct: formData.getProduct || 'Any Item',
+        buyProductName: formData.buyProductName || '',
+        getProductName: formData.getProductName || '',
+        getItemAt: formData.getItemAt || 'Free',
+        getItemDiscount: formData.getItemDiscount || '',
+      }
     } else if (dt === 'free_item') {
       dv = formData.freeItemName || 'Item'
       ms = formData.freeItemMinSpend ? Number(formData.freeItemMinSpend) : ms
@@ -484,7 +554,17 @@ export default function Coupons() {
                       ['Min Spend', c.minSpend != null ? `₱${Number(c.minSpend).toLocaleString()}` : '—'],
                       ['Max Discount Cap', c.maxDiscountCap != null ? `₱${Number(c.maxDiscountCap).toLocaleString()}` : '—'],
                       ['Max Redemptions', c.maxRedemptions != null ? Number(c.maxRedemptions).toLocaleString() : '—'],
-                      ['Products & Services', c.products || 'All Menu Items'],
+                      ['Products & Services', (() => {
+                        if (!c.products) return 'All Menu Items'
+                        try {
+                          const p = JSON.parse(c.products)
+                          // Bundle format
+                          if (p.name) return p.name
+                          // BOGO format
+                          if (p.buy) return [p.buy, p.get].filter(v => v && v !== 'Any Item').join(' → ') || 'Any Item'
+                        } catch {}
+                        return c.products
+                      })()],
                       ['Valid From', formatDate(c.validFrom)],
                       ['Valid Until', formatDate(c.validUntil)],
                       ['Status', c.status || '—'],
@@ -492,6 +572,99 @@ export default function Coupons() {
                       <div key={i}><div className="text-xs text-muted-foreground">{l}</div><div className="text-sm font-medium mt-0.5">{v}</div></div>
                     ))}
                   </div>
+                  {/* Bundle Combos Display */}
+                  {c.discountType === 'bundle' && (() => {
+                    try {
+                      const p = JSON.parse(c.products)
+                      if (p.combos?.length > 0) return (
+                        <div className="mt-4 pt-4 border-t border-border">
+                          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Available Combinations</h4>
+                          <div className="space-y-1.5">
+                            {p.combos.map((combo, ci) => (
+                              <div key={ci} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30">
+                                <Icon name="restaurant_menu" size={14} className="text-primary" />
+                                <span className="text-sm">{combo}</span>
+                              </div>
+                            ))}
+                          </div>
+                          {p.itemCount && <p className="text-xs text-muted-foreground mt-2">{p.itemCount} items included per bundle</p>}
+                        </div>
+                      )
+                    } catch {}
+                    return null
+                  })()}
+                  {/* BOGO Details Display */}
+                  {c.discountType === 'bogo' && (() => {
+                    try {
+                      const p = JSON.parse(c.products)
+                      const [buy, get] = (c.discountValue || '1:1').split(':')
+                      return (
+                        <div className="mt-4 pt-4 border-t border-border">
+                          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">BOGO Details</h4>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="rounded-lg border-l-4 border-primary bg-primary/5 px-3 py-2">
+                              <div className="text-[10px] font-semibold text-primary uppercase">Buy</div>
+                              <div className="text-sm font-medium">{buy} × {p.buy || 'Any Item'}</div>
+                            </div>
+                            <div className="rounded-lg border-l-4 border-orange-400 bg-orange-50 px-3 py-2">
+                              <div className="text-[10px] font-semibold text-orange-600 uppercase">Get {p.getItemAt && p.getItemAt !== 'Free' ? `at ${p.getItemAt}` : 'Free'}</div>
+                              <div className="text-sm font-medium">{get} × {p.get || 'Any Item'}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    } catch {}
+                    return null
+                  })()}
+                  {/* Tiers Display */}
+                  {c.tiers && Array.isArray(c.tiers) && c.tiers.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-border">
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Discount Tiers</h4>
+                      <div className="space-y-2">
+                        {c.tiers.map((tier, ti) => (
+                          <div key={ti} className="flex items-center gap-3 rounded-lg bg-muted/30 px-3 py-2">
+                            <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Tier {ti + 1}</span>
+                            <span className="text-sm font-medium">{tier.buyQuantity}+{tier.freeQuantity} Free</span>
+                            {tier.condition && <span className="text-xs text-muted-foreground">— {tier.condition}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Restrictions Display */}
+                  {c.restrictions && (
+                    <div className="mt-4 pt-4 border-t border-border">
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Conditions & Restrictions</h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {c.restrictions.diningMode && c.restrictions.diningMode !== 'Any' && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">{c.restrictions.diningMode}</span>
+                        )}
+                        {c.restrictions.specialValidity && c.restrictions.specialValidity !== 'None' && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">{c.restrictions.specialValidity}</span>
+                        )}
+                        {c.restrictions.minCompanions && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Min {c.restrictions.minCompanions} companions</span>
+                        )}
+                        {c.restrictions.getItemAt && c.restrictions.getItemAt !== 'Free' && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Get at {c.restrictions.getItemAt}</span>
+                        )}
+                        {c.restrictions.oneTimeUseOnly && <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">One-time use</span>}
+                        {c.restrictions.notCombinableWithOtherPromos && <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">No stacking</span>}
+                        {c.restrictions.requirePresence && <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Must be present</span>}
+                        {c.restrictions.requireValidId && <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Valid ID</span>}
+                        {c.restrictions.singleReceiptOnly && <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Single receipt</span>}
+                        {c.restrictions.priceIncludesVat && <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Incl. VAT</span>}
+                        {c.restrictions.subjectToServiceCharge && <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">+Service charge</span>}
+                      </div>
+                    </div>
+                  )}
+                  {/* Terms & Conditions */}
+                  {c.termsAndConditions && (
+                    <div className="mt-4 pt-4 border-t border-border">
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Terms & Conditions</h4>
+                      <p className="text-xs text-muted-foreground whitespace-pre-line">{c.termsAndConditions}</p>
+                    </div>
+                  )}
                 </div>
                 <div className="bg-card border border-border rounded-xl p-5">
                   <h3 className="text-sm font-semibold mb-4">Recent Redemptions</h3>
