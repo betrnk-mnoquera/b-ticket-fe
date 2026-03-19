@@ -97,6 +97,7 @@ export default function Coupons() {
   const [searchQuery, setSearchQuery] = useState('')
   const [orgFilter, setOrgFilter] = useState('')
   const [storeFilter, setStoreFilter] = useState('')
+  const [accessTypeFilter, setAccessTypeFilter] = useState('')
   const [organizations, setOrganizations] = useState([])
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState(null)
@@ -136,6 +137,7 @@ export default function Coupons() {
         ...(searchQuery && { search: searchQuery }),
         ...(orgFilter && { organization_id: orgFilter }),
         ...(storeFilter && { store_id: storeFilter }),
+        ...(accessTypeFilter && { access_type: accessTypeFilter }),
       }
       const res = await couponService.getCoupons(params)
       setCoupons(res.data || res.items || res)
@@ -146,7 +148,7 @@ export default function Coupons() {
     } finally {
       setLoading(false)
     }
-  }, [page, filter, searchQuery, orgFilter, storeFilter])
+  }, [page, filter, searchQuery, orgFilter, storeFilter, accessTypeFilter])
 
   const fetchStats = useCallback(async () => {
     try {
@@ -397,6 +399,7 @@ export default function Coupons() {
       },
       usageLimitPerUser: formData.usageLimitPerUser || null,
       customerEligibility: formData.customerEligibility || null,
+      accessType: formData.accessType || 'free',
     }
   }
 
@@ -768,26 +771,34 @@ export default function Coupons() {
             onFilterChange={handleFilterChange}
             onSearch={handleSearch}
             searchPlaceholder="Search coupons by name, code, or store..."
-            dropdowns={isSuperAdmin ? [
+            dropdowns={[
               {
-                label: 'Organization',
-                options: [{ value: '', label: 'All Organizations' }, ...organizations.map(o => ({ value: String(o.id), label: o.name }))],
-                value: orgFilter,
-                onChange: (v) => { setOrgFilter(v); setStoreFilter('') },
+                label: 'Access Type',
+                options: [{ value: '', label: 'All Types' }, { value: 'free', label: 'Free' }, { value: 'exclusive', label: 'Exclusive' }],
+                value: accessTypeFilter,
+                onChange: setAccessTypeFilter,
               },
-              {
-                label: 'Store',
-                options: [
-                  { value: '', label: 'All Stores' },
-                  ...(orgFilter
-                    ? stores.filter(s => String(s.organizationId) === orgFilter || String(s.organization?.id) === orgFilter)
-                    : stores
-                  ).map(s => ({ value: String(s.id), label: s.storeName || s.name })),
-                ],
-                value: storeFilter,
-                onChange: setStoreFilter,
-              },
-            ] : undefined}
+              ...(isSuperAdmin ? [
+                {
+                  label: 'Organization',
+                  options: [{ value: '', label: 'All Organizations' }, ...organizations.map(o => ({ value: String(o.id), label: o.name }))],
+                  value: orgFilter,
+                  onChange: (v) => { setOrgFilter(v); setStoreFilter('') },
+                },
+                {
+                  label: 'Store',
+                  options: [
+                    { value: '', label: 'All Stores' },
+                    ...(orgFilter
+                      ? stores.filter(s => String(s.organizationId) === orgFilter || String(s.organization?.id) === orgFilter)
+                      : stores
+                    ).map(s => ({ value: String(s.id), label: s.storeName || s.name })),
+                  ],
+                  value: storeFilter,
+                  onChange: setStoreFilter,
+                },
+              ] : []),
+            ]}
           />
         </div>
 
@@ -817,6 +828,7 @@ export default function Coupons() {
                 <th className="text-left px-4 py-3 font-medium">Redemptions</th>
                 <th className="text-left px-4 py-3 font-medium">Valid Period</th>
                 <th className="text-left px-4 py-3 font-medium">Status</th>
+                <th className="text-left px-4 py-3 font-medium">Type</th>
                 <th className="text-right px-4 py-3 font-medium"></th>
               </tr>
             </thead>
@@ -868,6 +880,11 @@ export default function Coupons() {
                     <td className="px-4 py-3">{(c.redemptions ?? 0).toLocaleString()}</td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{formatDate(c.validFrom)} - {formatDate(c.validUntil)}</td>
                     <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${c.accessType === 'exclusive' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>
+                        {c.accessType === 'exclusive' ? 'Exclusive' : 'Free'}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
                         <button onClick={(e) => { e.stopPropagation(); openEditDrawer(c) }} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="edit" size={16} className="text-muted-foreground" /></button>
@@ -926,6 +943,19 @@ export default function Coupons() {
                   if (store) updateFormField('storeId', store.id)
                 }} />
                 <FormField label="Status" select options={['Active', 'Scheduled', 'Paused']} value={formData.status} onChange={(v) => updateFormField('status', v)} />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Access Type</label>
+                <div className="flex gap-2">
+                  {['free', 'exclusive'].map(t => (
+                    <button key={t} type="button" onClick={() => updateFormField('accessType', t)}
+                      className={`flex-1 px-3 py-2 text-sm rounded-lg border font-medium capitalize transition-colors ${(formData.accessType || 'free') === t ? (t === 'exclusive' ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-primary/10 border-primary/30 text-primary') : 'border-border text-muted-foreground hover:bg-muted'}`}>
+                      <Icon name={t === 'exclusive' ? 'lock' : 'public'} size={14} className="inline mr-1.5" />
+                      {t === 'exclusive' ? 'Exclusive' : 'Free'}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">{(formData.accessType || 'free') === 'exclusive' ? 'Only Standard & Family subscribers can claim this coupon' : 'All app users can claim this coupon'}</p>
               </div>
               <FormField label="Description" textarea value={formData.description} onChange={(v) => updateFormField('description', v)} />
             </div>

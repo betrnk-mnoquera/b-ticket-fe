@@ -16,21 +16,28 @@ import { subscriberService } from '@/lib/api/services/subscriberService'
 
 const ITEMS_PER_PAGE = 10
 
-const filters = ['All', 'Active', 'Expiring', 'Free Trial', 'Churned', 'Cancelled']
+const filters = ['All', 'Active', 'Expiring', 'Churned', 'Cancelled']
 
 const filterToStatus = {
   'All': undefined,
   'Active': 'active',
   'Expiring': 'expiring',
-  'Free Trial': 'free_trial',
   'Churned': 'churned',
   'Cancelled': 'cancelled',
 }
 
-const planColors = { monthly: 'bg-blue-50 text-blue-700', yearly: 'bg-purple-50 text-purple-700', trial: 'bg-gray-100 text-gray-600' }
+const planColors = { free: 'bg-gray-100 text-gray-600', standard: 'bg-blue-50 text-blue-700', family: 'bg-purple-50 text-purple-700' }
+
+const planDropdownOptions = [
+  { value: '', label: 'All Plans' },
+  { value: 'free', label: 'Free' },
+  { value: 'standard', label: 'Standard' },
+  { value: 'family', label: 'Family' },
+]
 
 export default function Subscribers() {
   const [filter, setFilter] = useState('All')
+  const [planFilter, setPlanFilter] = useState('')
   const [page, setPage] = useState(1)
   const [searchQuery, setSearchQuery] = useState('')
   const [selected, setSelected] = useState(null)
@@ -51,8 +58,8 @@ export default function Subscribers() {
   const [stats, setStats] = useState([
     { icon: 'group', label: 'Total Subscribers', value: '-' },
     { icon: 'check_circle', label: 'Active', value: '-' },
-    { icon: 'calendar_month', label: 'Monthly Plan', value: '-' },
-    { icon: 'star', label: 'Yearly Plan', value: '-' },
+    { icon: 'star', label: 'Standard Plan', value: '-' },
+    { icon: 'family_restroom', label: 'Family Plan', value: '-' },
   ])
   const [statsLoading, setStatsLoading] = useState(true)
 
@@ -75,10 +82,12 @@ export default function Subscribers() {
       }
       const status = filterToStatus[filter]
       if (status) params.status = status
+      if (planFilter) params.plan = planFilter
       if (searchQuery) params.search = searchQuery
 
       const response = await subscriberService.getSubscribers(params)
-      const result = response.data || response
+      // Handle Laravel paginated response (has lastPage at top level or nested under data)
+      const result = response.lastPage !== undefined ? response : (response.data || response)
 
       setSubscribers(result.data || [])
       setTotalPages(result.lastPage || 1)
@@ -89,7 +98,7 @@ export default function Subscribers() {
     } finally {
       setLoading(false)
     }
-  }, [page, filter, searchQuery])
+  }, [page, filter, planFilter, searchQuery])
 
   const fetchStats = useCallback(async () => {
     setStatsLoading(true)
@@ -97,10 +106,10 @@ export default function Subscribers() {
       const response = await subscriberService.getStats()
       const result = response.data || response
       setStats([
-        { icon: 'group', label: 'Total Subscribers', value: String(result.totalSubscribers ?? result.total ?? '-') },
+        { icon: 'group', label: 'Total Subscribers', value: String(result.totalSubscribers ?? '-') },
         { icon: 'check_circle', label: 'Active', value: String(result.active ?? '-') },
-        { icon: 'calendar_month', label: 'Monthly Plan', value: String(result.monthlyPlan ?? result.monthly ?? '-') },
-        { icon: 'star', label: 'Yearly Plan', value: String(result.yearlyPlan ?? result.yearly ?? '-') },
+        { icon: 'star', label: 'Standard Plan', value: String(result.standardPlan ?? '-') },
+        { icon: 'family_restroom', label: 'Family Plan', value: String(result.familyPlan ?? '-') },
       ])
     } catch {
       // Keep default dash values on error
@@ -155,11 +164,13 @@ export default function Subscribers() {
   const handleSave = async () => {
     setSubmitting(true)
     try {
+      const plan = formData.plan?.toLowerCase()
       await subscriberService.createSubscriber({
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
-        plan: formData.plan?.toLowerCase(),
+        plan,
+        billingCycle: plan === 'free' ? null : formData.billingCycle?.toLowerCase() || null,
         status: formData.status?.toLowerCase().replace(/\s+/g, '_'),
         notes: formData.notes,
       })
@@ -227,7 +238,7 @@ export default function Subscribers() {
         ) : (
           <>
             <div className="grid grid-cols-4 gap-4 mb-6">
-              <StatsCard icon="credit_card" label="Current Plan" value={selected.plan ? selected.plan.charAt(0).toUpperCase() + selected.plan.slice(1) : '-'} />
+              <StatsCard icon="credit_card" label="Current Plan" value={selected.plan ? `${selected.plan.charAt(0).toUpperCase() + selected.plan.slice(1)}${selected.billingCycle ? ` (${selected.billingCycle})` : ''}` : '-'} />
               <StatsCard icon="confirmation_number" label="Coupons Redeemed" value={String(selected.couponsUsed ?? 0)} />
               <StatsCard icon="savings" label="Total Savings" value={selected.totalSavings != null ? `$${selected.totalSavings}` : `$${(selected.couponsUsed ?? 0) * 6.5}`} />
               <StatsCard icon="trending_up" label="Engagement" value={`${selected.engagement ?? 0}%`} />
@@ -238,7 +249,7 @@ export default function Subscribers() {
                 <div className="bg-card border border-border rounded-xl p-5">
                   <h3 className="text-sm font-semibold mb-4">Subscription Details</h3>
                   <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                    {[['Subscriber ID', `SUB-${String(selected.id).padStart(3, '0')}`], ['Plan', <span key="p" className={`text-xs px-2 py-0.5 rounded-full ${planColors[selected.plan] || ''}`}>{selected.plan}</span>], ['Subscribed Since', selected.subscribedDate || '-'], ['Next Renewal', selected.nextRenewal || '-'], ['Payment Method', selected.paymentMethod || '-'], ['Location', selected.location || '-']].map(([l, v], i) => (
+                    {[['Subscriber ID', `SUB-${String(selected.id).padStart(3, '0')}`], ['Plan', <span key="p" className={`text-xs px-2 py-0.5 rounded-full ${planColors[selected.plan] || ''}`}>{selected.plan}</span>], ['Billing Cycle', selected.billingCycle ? selected.billingCycle.charAt(0).toUpperCase() + selected.billingCycle.slice(1) : 'N/A'], ['Max Users', selected.maxUsers ?? 1], ['Subscribed Since', selected.subscribedDate ? new Date(selected.subscribedDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'], ['Next Renewal', selected.nextRenewal ? new Date(selected.nextRenewal).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'], ['Payment Method', selected.paymentMethod || '-'], ['Location', selected.location || '-']].map(([l, v], i) => (
                       <div key={i}><div className="text-xs text-muted-foreground">{l}</div><div className="text-sm font-medium mt-0.5">{v}</div></div>
                     ))}
                   </div>
@@ -304,7 +315,7 @@ export default function Subscribers() {
 
       <div className="bg-card border border-border rounded-xl shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
         <div className="p-4 border-b border-border">
-          <FilterBar filters={filters} activeFilter={filter} onFilterChange={handleFilterChange} onSearch={handleSearch} />
+          <FilterBar filters={filters} activeFilter={filter} onFilterChange={handleFilterChange} onSearch={handleSearch} dropdowns={[{ value: planFilter, onChange: (v) => { setPlanFilter(v); setPage(1) }, options: planDropdownOptions }]} />
         </div>
 
         {loading ? (
@@ -340,7 +351,7 @@ export default function Subscribers() {
                   return (
                     <tr key={s.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                       <td className="px-4 py-3"><div className="flex items-center gap-2.5"><div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">{avatar}</div><div><div className="font-medium">{s.name}</div><div className="text-xs text-muted-foreground">{s.email}</div></div></div></td>
-                      <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${planColors[s.plan] || ''}`}>{s.plan}</span></td>
+                      <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${planColors[s.plan] || ''}`}>{s.plan}{s.billingCycle ? ` (${s.billingCycle})` : ''}</span></td>
                       <td className="px-4 py-3"><StatusBadge status={s.status} /></td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -349,7 +360,7 @@ export default function Subscribers() {
                         </div>
                       </td>
                       <td className="px-4 py-3">{s.couponsUsed ?? 0}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{s.subscribedDate || '-'}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{s.subscribedDate ? new Date(s.subscribedDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'}</td>
                       <td className="px-4 py-3"><div className="flex items-center gap-1">
                         <button onClick={() => handleViewDetail(s)} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="visibility" size={16} className="text-muted-foreground" /></button>
                         <button onClick={() => { setDrawerOpen(true); setFormData(s) }} className="p-1.5 rounded-lg hover:bg-muted"><Icon name="edit" size={16} className="text-muted-foreground" /></button>
@@ -374,7 +385,10 @@ export default function Subscribers() {
           <FormField label="Full Name" value={formData.name || ''} onChange={v => handleFormChange('name', v)} />
           <FormField label="Email" type="email" value={formData.email || ''} onChange={v => handleFormChange('email', v)} />
           <FormField label="Phone" type="tel" value={formData.phone || ''} onChange={v => handleFormChange('phone', v)} />
-          <FormField label="Plan" select options={['Monthly', 'Yearly', 'Trial']} value={formData.plan || ''} onChange={v => handleFormChange('plan', v)} />
+          <FormField label="Plan" select options={['Free', 'Standard', 'Family']} value={formData.plan || ''} onChange={v => { handleFormChange('plan', v); if (v.toLowerCase() === 'free') handleFormChange('billingCycle', '') }} />
+          {formData.plan && formData.plan.toLowerCase() !== 'free' && (
+            <FormField label="Billing Cycle" select options={['Monthly', 'Yearly']} value={formData.billingCycle || ''} onChange={v => handleFormChange('billingCycle', v)} />
+          )}
           <FormField label="Status" select options={['Active', 'Expiring', 'Churned', 'Cancelled']} value={formData.status || ''} onChange={v => handleFormChange('status', v)} />
           <FormField label="Notes" textarea value={formData.notes || ''} onChange={v => handleFormChange('notes', v)} />
         </div>

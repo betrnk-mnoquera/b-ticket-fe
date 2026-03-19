@@ -21,11 +21,15 @@ export const subscriberService = {
     return apiClient.del(`/subscribers/${id}`);
   },
 
-  changePlan(id, plan) {
-    return apiClient.patch(`/subscribers/${id}/plan`, { plan });
+  changePlan(id, plan, billingCycle) {
+    return apiClient.patch(`/subscribers/${id}/plan`, { plan, billingCycle });
   },
 
   getStats() {
     return apiClient.get("/subscribers/stats");
+  },
+
+  getPlans() {
+    return apiClient.get("/subscribers/plans");
   },
 };
