@@ -25,9 +25,32 @@ const filters = ['All', 'Active', 'Scheduled', 'For Review', 'Expired']
 function formatDiscount(coupon) {
   if (coupon.discountType === 'percentage') return `${coupon.discountValue}%`
   if (coupon.discountType === 'fixed') return `₱${coupon.discountValue}`
-  if (coupon.discountType === 'bogo') return 'BOGO'
+  if (coupon.discountType === 'bogo') {
+    const [buy, free] = (coupon.discountValue || '1:1').split(':')
+    return `${buy}+${free} Free`
+  }
+  if (coupon.discountType === 'free_item') return `Free ${coupon.discountValue || 'Item'}`
+  if (coupon.discountType === 'bundle') return `₱${Number(coupon.discountValue || 0).toLocaleString()} Bundle`
   if (coupon.discountType === 'free_shipping') return 'Free Ship'
   return coupon.discountValue ?? '—'
+}
+
+function formatProducts(coupon) {
+  if (!coupon.products) return 'All Menu Items'
+  try {
+    const parsed = JSON.parse(coupon.products)
+    // BOGO products
+    if (parsed.buy && parsed.get) {
+      if (parsed.buy === parsed.get && parsed.buy !== 'Any Item') return parsed.buy
+      if (parsed.buy !== 'Any Item') return parsed.buy
+      if (parsed.get !== 'Any Item') return parsed.get
+    }
+    // Bundle combos
+    if (parsed.combos && Array.isArray(parsed.combos)) {
+      return parsed.combos.join(', ')
+    }
+  } catch { /* not JSON, use as string */ }
+  return coupon.products
 }
 
 function formatDate(dateStr) {
@@ -208,6 +231,20 @@ export default function Coupons() {
       products: coupon.products || '',
       plan: coupon.plan || '',
       customerEligibility: coupon.customerEligibility || '',
+      // Free item fields
+      freeItemName: coupon.discountType === 'free_item' ? (coupon.discountValue || '') : '',
+      freeItemMinSpend: coupon.discountType === 'free_item' ? (coupon.minSpend || '') : '',
+      // Bundle fields
+      bundleName: (() => { try { const p = JSON.parse(coupon.products); return p.name || '' } catch { return '' } })(),
+      bundlePrice: coupon.discountType === 'bundle' ? coupon.discountValue : '',
+      bundleItemCount: (() => { try { const p = JSON.parse(coupon.products); return p.itemCount || '' } catch { return '' } })(),
+      bundleCombos: (() => { try { const p = JSON.parse(coupon.products); return p.combos || [] } catch { return [] } })(),
+      // Tiers & restrictions
+      tiers: coupon.tiers || [],
+      restrictions: coupon.restrictions || {},
+      diningMode: coupon.restrictions?.diningMode || '',
+      applicableTo: coupon.restrictions?.applicableTo || '',
+      restrictionNotes: coupon.restrictions?.notes || '',
     })
     setDiscountType(coupon.discountType || 'percentage')
     setDrawerOpen(true)
@@ -222,8 +259,24 @@ export default function Coupons() {
   const buildPayload = () => {
     const dt = discountType || formData.discountType || 'percentage'
     let dv = formData.discountValue || '0'
+    let ms = formData.minSpend ? Number(formData.minSpend) : null
     if (dt === 'bogo') {
       dv = `${formData.buyQuantity || 1}:${formData.getQuantity || 1}`
+      // Include product info in products field for BOGO
+      const buyProd = formData.buyProduct === 'Specific Product' ? formData.buyProductName : 'Any Item'
+      const getProd = formData.getProduct === 'Specific Product' ? formData.getProductName : formData.getProduct === 'Same as Buy' ? buyProd : 'Any Item'
+      formData._bogoProducts = { buy: buyProd, get: getProd }
+    } else if (dt === 'free_item') {
+      dv = formData.freeItemName || 'Item'
+      ms = formData.freeItemMinSpend ? Number(formData.freeItemMinSpend) : ms
+    } else if (dt === 'bundle') {
+      dv = String(formData.bundlePrice || '0')
+      formData._bundleData = {
+        name: formData.bundleName || '',
+        price: formData.bundlePrice || '',
+        itemCount: formData.bundleItemCount || '2',
+        combos: (formData.bundleCombos || []).filter(Boolean),
+      }
     } else if (dt === 'free_shipping') {
       dv = '0'
     }
@@ -241,19 +294,38 @@ export default function Coupons() {
         const store = stores.find(s => s.id === formData.storeId || (s.storeName || s.name) === formData.storeName)
         return store?.organization?.name || ''
       })(),
-      products: formData.products || '',
+      products: dt === 'bogo' && formData._bogoProducts
+        ? JSON.stringify(formData._bogoProducts)
+        : dt === 'bundle' && formData._bundleData
+          ? JSON.stringify(formData._bundleData)
+        : formData.productScope === 'Specific Category'
+          ? `All ${formData.productCategory || ''}`
+          : formData.productScope === 'Specific Products'
+            ? (formData.productList || '').split('\n').filter(Boolean).join(', ')
+            : (formData.products || 'All Products & Services'),
       discountType: dt,
       discountValue: String(dv),
-      minSpend: formData.minSpend ? Number(formData.minSpend) : null,
+      minSpend: ms,
       maxDiscountCap: formData.maxDiscountCap ? Number(formData.maxDiscountCap) : null,
       maxRedemptions: formData.totalRedemptionLimit ? Number(formData.totalRedemptionLimit) : null,
       validFrom: formData.validFrom || null,
       validUntil: formData.validUntil || null,
-      termsAndConditions: formData.description || '',
+      termsAndConditions: formData.termsAndConditions || formData.description || '',
+      tiers: (formData.tiers || []).length > 0 ? formData.tiers : null,
+      restrictions: {
+        ...(formData.restrictions || {}),
+        diningMode: formData.diningMode || null,
+        minCompanions: formData.minCompanions ? Number(formData.minCompanions) : null,
+        specialValidity: formData.specialValidity || null,
+        getItemAt: formData.getItemAt || null,
+        getItemDiscount: formData.getItemDiscount || null,
+        limitedTimeRedemption: formData.limitedTimeRedemption || false,
+        redemptionWindowUnit: formData.redemptionWindowUnit || null,
+        redemptionWindowValue: formData.redemptionWindowValue || null,
+        redemptionStartTime: formData.redemptionStartTime || null,
+        redemptionEndTime: formData.redemptionEndTime || null,
+      },
       usageLimitPerUser: formData.usageLimitPerUser || null,
-      validDays: formData.validDays || null,
-      validHours: formData.validHours || null,
-      plan: formData.plan || null,
       customerEligibility: formData.customerEligibility || null,
     }
   }
@@ -262,7 +334,16 @@ export default function Coupons() {
     if (!formData.name) { toast('Coupon name is required'); return false }
     if (!formData.code) { toast('Coupon code is required'); return false }
     if (!discountType) { toast('Discount type is required'); return false }
-    if (discountType !== 'bogo' && discountType !== 'free_shipping' && !formData.discountValue) {
+    if (discountType === 'free_item' && !formData.freeItemName) {
+      toast('Free item name is required'); return false
+    }
+    if (discountType === 'free_item' && !formData.freeItemMinSpend) {
+      toast('Minimum purchase amount is required for free item'); return false
+    }
+    if (discountType === 'bundle' && !formData.bundlePrice) {
+      toast('Bundle price is required'); return false
+    }
+    if (!['bogo', 'free_shipping', 'free_item', 'bundle'].includes(discountType) && !formData.discountValue) {
       toast('Discount value is required'); return false
     }
     if (!formData.validFrom) { toast('Valid from date is required'); return false }
@@ -398,7 +479,7 @@ export default function Coupons() {
                   <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                     {[
                       ['Code', c.code],
-                      ['Discount Type', c.discountType === 'percentage' ? 'Percentage' : c.discountType === 'fixed' ? 'Fixed Amount' : c.discountType === 'bogo' ? 'Buy X Get Y Free' : c.discountType || '—'],
+                      ['Discount Type', c.discountType === 'percentage' ? 'Percentage' : c.discountType === 'fixed' ? 'Fixed Amount' : c.discountType === 'bogo' ? 'Buy X Get Y Free' : c.discountType === 'free_item' ? 'Free Item' : c.discountType === 'bundle' ? 'Bundle Deal' : c.discountType === 'free_shipping' ? 'Free Shipping' : c.discountType || '—'],
                       ['Discount Value', discount],
                       ['Min Spend', c.minSpend != null ? `₱${Number(c.minSpend).toLocaleString()}` : '—'],
                       ['Max Discount Cap', c.maxDiscountCap != null ? `₱${Number(c.maxDiscountCap).toLocaleString()}` : '—'],
@@ -577,8 +658,29 @@ export default function Coupons() {
                         <Icon name="store" size={12} /> {storeName}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{c.products || 'All Menu Items'}</td>
-                    <td className="px-4 py-3 font-semibold">{discount}</td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs">{formatProducts(c)}</td>
+                    <td className="px-4 py-3">
+                      <div>
+                        <span className="font-semibold">{discount}</span>
+                        {c.discountType === 'bogo' && (() => {
+                          try {
+                            const p = JSON.parse(c.products)
+                            if (p.buy && p.buy !== 'Any Item') return <div className="text-[10px] text-muted-foreground mt-0.5">in {p.buy}</div>
+                          } catch {}
+                          return null
+                        })()}
+                        {c.discountType === 'free_item' && c.minSpend && (
+                          <div className="text-[10px] text-muted-foreground mt-0.5">min ₱{Number(c.minSpend).toLocaleString()}</div>
+                        )}
+                        {c.discountType === 'bundle' && (() => {
+                          try {
+                            const p = JSON.parse(c.products)
+                            if (p.combos?.length) return <div className="text-[10px] text-muted-foreground mt-0.5">{p.combos.length} combo{p.combos.length > 1 ? 's' : ''} available</div>
+                          } catch {}
+                          return null
+                        })()}
+                      </div>
+                    </td>
                     <td className="px-4 py-3">{(c.redemptions ?? 0).toLocaleString()}</td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{formatDate(c.validFrom)} - {formatDate(c.validUntil)}</td>
                     <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
@@ -608,12 +710,12 @@ export default function Coupons() {
           </button>
         </>}
       >
-        <AccordionGroup defaultOpen="Coupon Info">
-          <Accordion title="Coupon Info">
+        <AccordionGroup defaultOpen="Coupon Details">
+          {/* SECTION 1: Coupon Details */}
+          <Accordion title="Coupon Details" icon="confirmation_number">
             <div className="space-y-3">
               <FormField label="Coupon Name" value={formData.name} onChange={(v) => {
                 updateFormField('name', v)
-                // Auto-generate code if code is empty or was auto-generated
                 if (!formData.code || formData._autoCode) {
                   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
                   const prefix = (v || '').replace(/[^a-zA-Z]/g, '').substring(0, 4).toUpperCase()
@@ -625,38 +727,32 @@ export default function Coupons() {
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Code</label>
                 <div className="flex gap-2">
-                  <input
-                    type="text"
-                    className="flex-1 px-3 py-2 text-sm rounded-lg border border-border bg-muted/30 focus:outline-none focus:ring-2 focus:ring-ring uppercase"
-                    placeholder="e.g. SUMMER20"
-                    value={formData.code || ''}
-                    onChange={(e) => { updateFormField('code', e.target.value.toUpperCase()); updateFormField('_autoCode', false) }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => { updateFormField('code', generateCouponCode()); updateFormField('_autoCode', true) }}
-                    className="px-3 py-2 text-xs font-medium rounded-lg border border-border hover:bg-muted flex items-center gap-1"
-                  >
+                  <input type="text" className="flex-1 px-3 py-2 text-sm rounded-lg border border-border bg-muted/30 focus:outline-none focus:ring-2 focus:ring-ring uppercase" placeholder="e.g. SUMMER20"
+                    value={formData.code || ''} onChange={(e) => { updateFormField('code', e.target.value.toUpperCase()); updateFormField('_autoCode', false) }} />
+                  <button type="button" onClick={() => { updateFormField('code', generateCouponCode()); updateFormField('_autoCode', true) }}
+                    className="px-3 py-2 text-xs font-medium rounded-lg border border-border hover:bg-muted flex items-center gap-1">
                     <Icon name="autorenew" size={14} /> Generate
                   </button>
                 </div>
               </div>
-              <FormField label="Status" select options={['Active', 'Scheduled', 'Paused']} value={formData.status} onChange={(v) => updateFormField('status', v)} />
-              <FormField label="Store" select options={stores.map(s => s.storeName || s.name)} value={formData.storeName} onChange={(v) => {
-                const store = stores.find(s => (s.storeName || s.name) === v)
-                updateFormField('storeName', v)
-                if (store) updateFormField('storeId', store.id)
-              }} />
+              <div className="grid grid-cols-2 gap-3">
+                <FormField label="Store" select options={stores.map(s => s.storeName || s.name)} value={formData.storeName} onChange={(v) => {
+                  const store = stores.find(s => (s.storeName || s.name) === v)
+                  updateFormField('storeName', v)
+                  if (store) updateFormField('storeId', store.id)
+                }} />
+                <FormField label="Status" select options={['Active', 'Scheduled', 'Paused']} value={formData.status} onChange={(v) => updateFormField('status', v)} />
+              </div>
               <FormField label="Description" textarea value={formData.description} onChange={(v) => updateFormField('description', v)} />
-              <div><label className="text-xs font-medium text-muted-foreground mb-1.5 block">Coupon Image</label><FileUpload compact accept="JPG, PNG up to 5MB" /></div>
             </div>
           </Accordion>
+          {/* SECTION 2: Discount Configuration */}
           <Accordion title="Discount Configuration" subtitle="Type, value & discount cap" icon="local_offer">
             <div className="space-y-4">
-              <FormField label="Discount Type" select options={['Percentage', 'Fixed Amount', 'Buy X Get Y Free']} value={
-                discountType === 'percentage' ? 'Percentage' : discountType === 'fixed' ? 'Fixed Amount' : discountType === 'bogo' ? 'Buy X Get Y Free' : ''
+              <FormField label="Discount Type" select options={['Percentage', 'Fixed Amount', 'Buy X Get Y', 'Free Item', 'Bundle Deal', 'Free Shipping']} value={
+                discountType === 'percentage' ? 'Percentage' : discountType === 'fixed' ? 'Fixed Amount' : discountType === 'bogo' ? 'Buy X Get Y' : discountType === 'free_item' ? 'Free Item' : discountType === 'bundle' ? 'Bundle Deal' : discountType === 'free_shipping' ? 'Free Shipping' : ''
               } onChange={(v) => {
-                const key = v === 'Percentage' ? 'percentage' : v === 'Fixed Amount' ? 'fixed' : v === 'Buy X Get Y Free' ? 'bogo' : ''
+                const key = v === 'Percentage' ? 'percentage' : v === 'Fixed Amount' ? 'fixed' : v === 'Buy X Get Y' ? 'bogo' : v === 'Free Item' ? 'free_item' : v === 'Bundle Deal' ? 'bundle' : v === 'Free Shipping' ? 'free_shipping' : ''
                 setDiscountType(key)
                 updateFormField('discountType', key)
               }} />
@@ -665,21 +761,106 @@ export default function Coupons() {
                   <div className="rounded-lg border-l-4 border-primary bg-muted/30 p-4 space-y-3">
                     <div className="text-xs font-semibold text-primary uppercase tracking-wide">Buy</div>
                     <div className="grid grid-cols-2 gap-3">
-                      <FormField label="Quantity" type="number" placeholder="1" value={formData.buyQuantity} onChange={(v) => updateFormField('buyQuantity', v)} />
-                      <FormField label="Product(s)" select options={formData.storeName ? ['Any Item', 'Specific Products'] : []} placeholder={!formData.storeName ? 'Select store first...' : undefined} value={formData.buyProduct} onChange={(v) => updateFormField('buyProduct', v)} />
+                      <FormField label="Quantity" type="number" placeholder="e.g. 4" value={formData.buyQuantity} onChange={(v) => updateFormField('buyQuantity', v)} />
+                      <FormField label="Product" select options={['Any Item', 'Specific Product']} value={formData.buyProduct || 'Any Item'} onChange={(v) => updateFormField('buyProduct', v)} />
                     </div>
+                    {formData.buyProduct === 'Specific Product' && (
+                      <FormField label="Product Name" placeholder="e.g. Shawarma, Korean Beef Brisket" value={formData.buyProductName} onChange={(v) => updateFormField('buyProductName', v)} />
+                    )}
                   </div>
                   <div className="rounded-lg border-l-4 border-orange-400 bg-muted/30 p-4 space-y-3">
-                    <div className="text-xs font-semibold text-orange-500 uppercase tracking-wide">Get Free</div>
+                    <div className="text-xs font-semibold text-orange-500 uppercase tracking-wide">Get</div>
                     <div className="grid grid-cols-2 gap-3">
-                      <FormField label="Quantity" type="number" placeholder="1" value={formData.getQuantity} onChange={(v) => updateFormField('getQuantity', v)} />
-                      <FormField label="Product(s)" select options={formData.storeName ? ['Any Item', 'Specific Products'] : []} placeholder={!formData.storeName ? 'Select store first...' : undefined} value={formData.getProduct} onChange={(v) => updateFormField('getProduct', v)} />
+                      <FormField label="Quantity" type="number" placeholder="e.g. 1" value={formData.getQuantity} onChange={(v) => updateFormField('getQuantity', v)} />
+                      <FormField label="At" select options={['Free', '50% Off', '25% Off', 'Custom Discount']} value={formData.getItemAt || 'Free'} onChange={(v) => updateFormField('getItemAt', v)} />
                     </div>
+                    {formData.getItemAt === 'Custom Discount' && (
+                      <FormField label="Discount %" type="number" placeholder="e.g. 30" value={formData.getItemDiscount} onChange={(v) => updateFormField('getItemDiscount', v)} />
+                    )}
+                    <FormField label="Product" select options={['Same as Buy', 'Any Item', 'Specific Product']} value={formData.getProduct || 'Same as Buy'} onChange={(v) => updateFormField('getProduct', v)} />
+                    {formData.getProduct === 'Specific Product' && (
+                      <FormField label="Product Name" placeholder="e.g. Kimchi Fried Rice" value={formData.getProductName} onChange={(v) => updateFormField('getProductName', v)} />
+                    )}
                   </div>
                   <div className="bg-muted/50 rounded-lg px-4 py-3 text-sm text-center">
-                    Buy <strong>{formData.buyQuantity || 1}</strong> {formData.buyProduct?.toLowerCase() === 'specific products' ? 'selected item' : 'any item'}, get <strong>{formData.getQuantity || 1}</strong> item <strong>FREE</strong>
+                    Buy <strong>{formData.buyQuantity || 1}</strong>{' '}
+                    {formData.buyProduct === 'Specific Product' && formData.buyProductName
+                      ? <strong>{formData.buyProductName}</strong>
+                      : 'any item'
+                    }, get <strong>{formData.getQuantity || 1}</strong>{' '}
+                    {formData.getProduct === 'Specific Product' && formData.getProductName
+                      ? <strong>{formData.getProductName}</strong>
+                      : formData.getProduct === 'Same as Buy' && formData.buyProduct === 'Specific Product' && formData.buyProductName
+                        ? <strong>{formData.buyProductName}</strong>
+                        : 'item'
+                    }{' '}
+                    <strong>{!formData.getItemAt || formData.getItemAt === 'Free' ? 'FREE' : formData.getItemAt === 'Custom Discount' ? `${formData.getItemDiscount || '?'}% OFF` : formData.getItemAt.toUpperCase()}</strong>
                   </div>
                 </>
+              ) : discountType === 'free_item' ? (
+                <>
+                  <div className="rounded-lg border-l-4 border-emerald-500 bg-muted/30 p-4 space-y-3">
+                    <div className="text-xs font-semibold text-emerald-600 uppercase tracking-wide">Free Item(s)</div>
+                    <FormField label="Item Name(s)" textarea placeholder="e.g. Buffet Set Menu, Cheesecake&#10;(one item per line for multiple)" value={formData.freeItemName} onChange={(v) => updateFormField('freeItemName', v)} />
+                    <FormField label="Minimum Purchase Amount" type="number" placeholder="e.g. 2000 (leave blank if none)" value={formData.freeItemMinSpend} onChange={(v) => updateFormField('freeItemMinSpend', v)} />
+                  </div>
+                  <div className="bg-muted/50 rounded-lg px-4 py-3 text-sm text-center">
+                    Free <strong>{(formData.freeItemName || 'item').split('\n').filter(Boolean).join(' + ') || 'item'}</strong>
+                    {formData.freeItemMinSpend ? <> with min. spend of <strong>₱{Number(formData.freeItemMinSpend).toLocaleString()}</strong></> : ''}
+                  </div>
+                </>
+              ) : discountType === 'bundle' ? (
+                <>
+                  <div className="rounded-lg border-l-4 border-indigo-500 bg-muted/30 p-4 space-y-3">
+                    <div className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Bundle Details</div>
+                    <FormField label="Bundle Name" placeholder="e.g. Buy 1 Get 1 Brick Oven Pizza" value={formData.bundleName} onChange={(v) => updateFormField('bundleName', v)} />
+                    <FormField label="Bundle Price" type="number" placeholder="e.g. 700" value={formData.bundlePrice} onChange={(v) => updateFormField('bundlePrice', v)} />
+                    <FormField label="Items Included" type="number" placeholder="e.g. 2" value={formData.bundleItemCount} onChange={(v) => updateFormField('bundleItemCount', v)} />
+                  </div>
+                  <div className="rounded-lg border-l-4 border-violet-400 bg-muted/30 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-semibold text-violet-600 uppercase tracking-wide">Available Combinations</div>
+                    </div>
+                    {(formData.bundleCombos || []).map((combo, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <input className="flex-1 px-3 py-2 text-sm rounded-lg border border-border bg-muted/30 focus:outline-none focus:ring-2 focus:ring-ring"
+                          placeholder={`Combo ${i + 1}: e.g. Margherita & Salame`}
+                          value={combo}
+                          onChange={(e) => {
+                            const updated = [...(formData.bundleCombos || [])]
+                            updated[i] = e.target.value
+                            updateFormField('bundleCombos', updated)
+                          }}
+                        />
+                        <button type="button" onClick={() => {
+                          const updated = [...(formData.bundleCombos || [])]
+                          updated.splice(i, 1)
+                          updateFormField('bundleCombos', updated)
+                        }} className="p-1.5 rounded hover:bg-muted"><Icon name="close" size={14} className="text-destructive" /></button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => {
+                      updateFormField('bundleCombos', [...(formData.bundleCombos || []), ''])
+                    }} className="w-full py-2 text-xs font-medium rounded-lg border border-dashed border-border hover:border-indigo-400 hover:bg-indigo-50 flex items-center justify-center gap-1.5 transition-colors">
+                      <Icon name="add" size={14} /> Add Combination
+                    </button>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg px-4 py-3 text-sm">
+                    <div className="text-center font-medium mb-2">
+                      {formData.bundleName || 'Bundle Deal'} — <strong>₱{Number(formData.bundlePrice || 0).toLocaleString()}</strong>
+                    </div>
+                    {(formData.bundleCombos || []).filter(Boolean).length > 0 && (
+                      <div className="text-xs text-muted-foreground text-center">
+                        Available: {(formData.bundleCombos || []).filter(Boolean).join(' • ')}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : discountType === 'free_shipping' ? (
+                <div className="bg-muted/50 rounded-lg px-4 py-3 text-sm text-center flex items-center justify-center gap-2">
+                  <Icon name="local_shipping" size={18} className="text-primary" />
+                  Free shipping will be applied at checkout
+                </div>
               ) : (
                 <>
                   <FormField label="Discount Value" type="number" placeholder={discountType === 'percentage' ? 'e.g. 20' : 'e.g. 50'} value={formData.discountValue} onChange={(v) => updateFormField('discountValue', v)} />
@@ -688,28 +869,120 @@ export default function Coupons() {
               )}
             </div>
           </Accordion>
-          <Accordion title="Rules & Limits">
-            <div className="space-y-3">
-              <FormField label="Minimum Spend" type="number" placeholder="e.g. 500" value={formData.minSpend} onChange={(v) => updateFormField('minSpend', v)} />
-              <FormField label="Usage Limit Per User" select options={['1', '2', '3', '5', 'Unlimited']} value={formData.usageLimitPerUser} onChange={(v) => updateFormField('usageLimitPerUser', v)} />
-              <FormField label="Total Redemption Limit" type="number" placeholder="e.g. 1000" value={formData.totalRedemptionLimit} onChange={(v) => updateFormField('totalRedemptionLimit', v)} />
-            </div>
-          </Accordion>
-          <Accordion title="Coupon Validity">
-            <div className="space-y-3">
+          {/* SECTION 3: Conditions */}
+          <Accordion title="Conditions" subtitle="Validity, limits & restrictions" icon="tune">
+            <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <FormField label="Valid From" type="date" value={formData.validFrom} onChange={(v) => updateFormField('validFrom', v)} />
                 <FormField label="Valid Until" type="date" value={formData.validUntil} onChange={(v) => updateFormField('validUntil', v)} />
               </div>
-              <FormField label="Valid Days" select options={['All Days', 'Weekdays', 'Weekends', 'Custom']} value={formData.validDays} onChange={(v) => updateFormField('validDays', v)} />
-              <FormField label="Valid Hours" select options={['All Day', 'Morning (6AM-12PM)', 'Afternoon (12PM-6PM)', 'Evening (6PM-12AM)']} value={formData.validHours} onChange={(v) => updateFormField('validHours', v)} />
+
+              {/* Limited Time Redemption */}
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input type="checkbox" checked={!!formData.limitedTimeRedemption}
+                  onChange={(e) => updateFormField('limitedTimeRedemption', e.target.checked)}
+                  className="w-4 h-4 rounded border-border text-primary focus:ring-primary" />
+                <span className="text-xs font-medium">Limited Time Redemption</span>
+              </label>
+              {formData.limitedTimeRedemption && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField label="Redemption Window" select options={['Hours', 'Days', 'Weeks']} value={formData.redemptionWindowUnit || 'Days'} onChange={(v) => updateFormField('redemptionWindowUnit', v)} />
+                    <FormField label="Duration" type="number" placeholder={formData.redemptionWindowUnit === 'Hours' ? 'e.g. 24' : formData.redemptionWindowUnit === 'Weeks' ? 'e.g. 1' : 'e.g. 3'} value={formData.redemptionWindowValue} onChange={(v) => updateFormField('redemptionWindowValue', v)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField label="Redeemable From (Time)" type="time" value={formData.redemptionStartTime} onChange={(v) => updateFormField('redemptionStartTime', v)} />
+                    <FormField label="Redeemable Until (Time)" type="time" value={formData.redemptionEndTime} onChange={(v) => updateFormField('redemptionEndTime', v)} />
+                  </div>
+                  <div className="bg-amber-100 rounded px-3 py-2 text-xs text-amber-800 flex items-center gap-2">
+                    <Icon name="timer" size={14} />
+                    Redeemable for <strong>{formData.redemptionWindowValue || '?'} {(formData.redemptionWindowUnit || 'Days').toLowerCase()}</strong>
+                    {formData.redemptionStartTime && formData.redemptionEndTime
+                      ? <>, between <strong>{formData.redemptionStartTime}</strong> and <strong>{formData.redemptionEndTime}</strong></>
+                      : ' only'}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <FormField label="Special Validity" select options={['None', 'Birthday (Exact Date)', 'Birth Month', 'Birthday or Birth Month', 'Anniversary']} value={formData.specialValidity} onChange={(v) => updateFormField('specialValidity', v)} />
+                <FormField label="Dining Mode" select options={['Any', 'Dine-in Only', 'Takeout Only', 'Delivery Only']} value={formData.diningMode} onChange={(v) => updateFormField('diningMode', v)} />
+              </div>
+              {formData.specialValidity && formData.specialValidity !== 'None' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 text-xs text-blue-700 flex items-center gap-2">
+                  <Icon name="cake" size={16} />
+                  Valid on customer&apos;s <strong>{formData.specialValidity === 'Birthday (Exact Date)' ? 'exact birthday' : formData.specialValidity === 'Birth Month' ? 'birth month' : formData.specialValidity === 'Birthday or Birth Month' ? 'birthday or birth month' : 'anniversary'}</strong> — verified via valid ID
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <FormField label="Min. Spend" type="number" placeholder="e.g. 500" value={formData.minSpend} onChange={(v) => updateFormField('minSpend', v)} />
+                <FormField label="Min. Companions (Full Paying)" type="number" placeholder="e.g. 4" value={formData.minCompanions} onChange={(v) => updateFormField('minCompanions', v)} />
+              </div>
+              {formData.minCompanions && Number(formData.minCompanions) > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 text-xs text-amber-700 flex items-center gap-2">
+                  <Icon name="group" size={16} />
+                  Must bring at least <strong>{formData.minCompanions}</strong> full paying adult{Number(formData.minCompanions) > 1 ? 's' : ''} to redeem
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <FormField label="Usage Limit Per User" select options={['1', '2', '3', '5', 'Unlimited']} value={formData.usageLimitPerUser} onChange={(v) => updateFormField('usageLimitPerUser', v)} />
+                <FormField label="Total Redemption Limit" type="number" placeholder="e.g. 1000" value={formData.totalRedemptionLimit} onChange={(v) => updateFormField('totalRedemptionLimit', v)} />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Requirements</label>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                  {[
+                    { key: 'oneTimeUseOnly', label: 'One-time use only' },
+                    { key: 'notCombinableWithOtherPromos', label: 'Cannot stack with other promos' },
+                    { key: 'requirePresence', label: 'Celebrant must be present' },
+                    { key: 'requireValidId', label: 'Valid ID required' },
+                    { key: 'singleReceiptOnly', label: 'Single receipt only' },
+                    { key: 'perTableOnly', label: 'One coupon per table' },
+                    { key: 'priceIncludesVat', label: 'Price includes VAT' },
+                    { key: 'subjectToServiceCharge', label: 'Subject to service charge' },
+                  ].map(req => (
+                    <label key={req.key} className="flex items-center gap-2.5 cursor-pointer">
+                      <input type="checkbox" checked={!!(formData.restrictions || {})[req.key]}
+                        onChange={(e) => updateFormField('restrictions', { ...(formData.restrictions || {}), [req.key]: e.target.checked })}
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary" />
+                      <span className="text-xs">{req.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tiers (optional) */}
+              {(formData.tiers || []).length > 0 && (
+                <div className="space-y-2 pt-2 border-t border-border">
+                  <label className="text-xs font-medium text-muted-foreground block">Discount Tiers</label>
+                  {(formData.tiers || []).map((tier, i) => (
+                    <div key={i} className="rounded-lg border border-border bg-muted/20 p-3 space-y-2 relative">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-semibold text-primary uppercase">Tier {i + 1}</span>
+                        <button type="button" onClick={() => { const u = [...(formData.tiers || [])]; u.splice(i, 1); updateFormField('tiers', u) }} className="p-0.5 rounded hover:bg-muted"><Icon name="close" size={12} className="text-destructive" /></button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <FormField label="Buy Qty" type="number" placeholder="4" value={tier.buyQuantity} onChange={(v) => { const u = [...(formData.tiers || [])]; u[i] = { ...u[i], buyQuantity: v }; updateFormField('tiers', u) }} />
+                        <FormField label="Free Qty" type="number" placeholder="1" value={tier.freeQuantity} onChange={(v) => { const u = [...(formData.tiers || [])]; u[i] = { ...u[i], freeQuantity: v }; updateFormField('tiers', u) }} />
+                        <FormField label="Condition" placeholder="e.g. Birthday" value={tier.condition} onChange={(v) => { const u = [...(formData.tiers || [])]; u[i] = { ...u[i], condition: v }; updateFormField('tiers', u) }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button type="button" onClick={() => updateFormField('tiers', [...(formData.tiers || []), { buyQuantity: '', freeQuantity: '1', condition: '' }])}
+                className="w-full py-2 text-xs font-medium rounded-lg border border-dashed border-border hover:border-primary hover:bg-primary/5 flex items-center justify-center gap-1.5 transition-colors">
+                <Icon name="add" size={14} /> Add Tier
+              </button>
             </div>
           </Accordion>
-          <Accordion title="Coupon Availability">
+
+          {/* SECTION 4: Terms & Conditions */}
+          <Accordion title="Terms & Conditions" subtitle="Additional terms, notes & fine print" icon="description">
             <div className="space-y-3">
-              <FormField label="Products & Services" select options={['All Products', 'Signature Burger', 'Classic Pizza', 'Grilled Salmon']} value={formData.products} onChange={(v) => updateFormField('products', v)} />
-              <FormField label="Plan" select options={['All Plans', 'Basic', 'Premium', 'VIP']} value={formData.plan} onChange={(v) => updateFormField('plan', v)} />
-              <FormField label="Customer Eligibility" select options={['All Customers', 'New Customers', 'Returning Customers']} value={formData.customerEligibility} onChange={(v) => updateFormField('customerEligibility', v)} />
+              <FormField label="Terms & Conditions" textarea placeholder={"e.g.\n• Must present valid ID with birthdate, name, and photo\n• Dine-in only, Buffet only\n• Not valid with other promos\n• One use per B-ticket magazine stub\n• Prices include 12% VAT and 10% service charge"} value={formData.termsAndConditions} onChange={(v) => updateFormField('termsAndConditions', v)} />
+              <FormField label="Customer Eligibility" select options={['All Customers', 'New Customers', 'Returning Customers', 'Members Only', 'VIP Only']} value={formData.customerEligibility} onChange={(v) => updateFormField('customerEligibility', v)} />
             </div>
           </Accordion>
         </AccordionGroup>
