@@ -17,16 +17,16 @@ export const organizations = [
 ]
 
 export const coupons = [
-  { id: 1, name: 'Summer Sale 20%', code: 'SUM20', store: 'Acme Downtown', products: 'All Products', discount: '20%', redemptions: 847, validFrom: '2025-06-01', validUntil: '2025-08-31', status: 'active', icon: 'local_offer', color: '#205C50' },
-  { id: 2, name: 'Welcome Discount', code: 'WELCOME10', store: 'Fashion Avenue', products: 'Apparel', discount: '10%', redemptions: 324, validFrom: '2025-01-01', validUntil: '2025-12-31', status: 'active', icon: 'celebration', color: '#E4793A' },
-  { id: 3, name: 'Flash Friday', code: 'FLASH50', store: 'TechHub Central', products: 'Electronics', discount: '50%', redemptions: 156, validFrom: '2025-07-01', validUntil: '2025-07-02', status: 'expired', icon: 'bolt', color: '#EE4036' },
-  { id: 4, name: 'Buy 1 Get 1', code: 'BOGO', store: 'Acme Downtown', products: 'Burgers', discount: 'BOGO', redemptions: 0, validFrom: '2025-09-01', validUntil: '2025-09-30', status: 'scheduled', icon: 'redeem', color: '#50C9BF' },
-  { id: 5, name: 'VIP Exclusive', code: 'VIP30', store: 'Bella Spa', products: 'Spa Packages', discount: '30%', redemptions: 89, validFrom: '2025-05-01', validUntil: '2025-11-30', status: 'active', icon: 'star', color: '#84BEA1' },
-  { id: 6, name: 'Free Shipping', code: 'FREESHIP', store: 'Fashion Avenue', products: 'All Orders', discount: 'Free Ship', redemptions: 0, validFrom: '2025-08-15', validUntil: '2025-08-31', status: 'for_review', icon: 'local_shipping', color: '#205C50' },
-  { id: 7, name: 'Holiday Bundle', code: 'HOLIDAY25', store: 'TechHub Central', products: 'Accessories', discount: '25%', redemptions: 412, validFrom: '2025-03-01', validUntil: '2025-04-30', status: 'expired', icon: 'card_giftcard', color: '#E4793A' },
-  { id: 8, name: 'Pet Lovers Deal', code: 'PET15', store: 'Pet Paradise', products: 'Pet Food', discount: '15%', redemptions: 67, validFrom: '2025-06-01', validUntil: '2025-12-31', status: 'active', icon: 'pets', color: '#50C9BF' },
-  { id: 9, name: 'Wellness Week', code: 'WELL20', store: 'HealthFirst Clinic', products: 'Checkups', discount: '20%', redemptions: 0, validFrom: '2025-10-01', validUntil: '2025-10-07', status: 'scheduled', icon: 'health_and_safety', color: '#205C50' },
-  { id: 10, name: 'Auto Service Discount', code: 'AUTO10', store: 'AutoMax Service', products: 'Oil Change', discount: '10%', redemptions: 23, validFrom: '2025-05-01', validUntil: '2025-07-31', status: 'paused', icon: 'directions_car', color: '#6B7E79' },
+  { id: 1, name: 'Summer Sale 20%', code: 'SUM20', store: 'Acme Downtown', products: 'All Products', discount: '20%', redemptions: 847, validFrom: '2025-06-01', validUntil: '2025-08-31', status: 'active', accessType: 'free', icon: 'local_offer', color: '#205C50' },
+  { id: 2, name: 'Welcome Discount', code: 'WELCOME10', store: 'Fashion Avenue', products: 'Apparel', discount: '10%', redemptions: 324, validFrom: '2025-01-01', validUntil: '2025-12-31', status: 'active', accessType: 'exclusive', icon: 'celebration', color: '#E4793A' },
+  { id: 3, name: 'Flash Friday', code: 'FLASH50', store: 'TechHub Central', products: 'Electronics', discount: '50%', redemptions: 156, validFrom: '2025-07-01', validUntil: '2025-07-02', status: 'expired', accessType: 'exclusive', icon: 'bolt', color: '#EE4036' },
+  { id: 4, name: 'Buy 1 Get 1', code: 'BOGO', store: 'Acme Downtown', products: 'Burgers', discount: 'BOGO', redemptions: 0, validFrom: '2025-09-01', validUntil: '2025-09-30', status: 'scheduled', accessType: 'free', icon: 'redeem', color: '#50C9BF' },
+  { id: 5, name: 'VIP Exclusive', code: 'VIP30', store: 'Bella Spa', products: 'Spa Packages', discount: '30%', redemptions: 89, validFrom: '2025-05-01', validUntil: '2025-11-30', status: 'active', accessType: 'exclusive', icon: 'star', color: '#84BEA1' },
+  { id: 6, name: 'Free Shipping', code: 'FREESHIP', store: 'Fashion Avenue', products: 'All Orders', discount: 'Free Ship', redemptions: 0, validFrom: '2025-08-15', validUntil: '2025-08-31', status: 'for_review', accessType: 'free', icon: 'local_shipping', color: '#205C50' },
+  { id: 7, name: 'Holiday Bundle', code: 'HOLIDAY25', store: 'TechHub Central', products: 'Accessories', discount: '25%', redemptions: 412, validFrom: '2025-03-01', validUntil: '2025-04-30', status: 'expired', accessType: 'exclusive', icon: 'card_giftcard', color: '#E4793A' },
+  { id: 8, name: 'Pet Lovers Deal', code: 'PET15', store: 'Pet Paradise', products: 'Pet Food', discount: '15%', redemptions: 67, validFrom: '2025-06-01', validUntil: '2025-12-31', status: 'active', accessType: 'free', icon: 'pets', color: '#50C9BF' },
+  { id: 9, name: 'Wellness Week', code: 'WELL20', store: 'HealthFirst Clinic', products: 'Checkups', discount: '20%', redemptions: 0, validFrom: '2025-10-01', validUntil: '2025-10-07', status: 'scheduled', accessType: 'free', icon: 'health_and_safety', color: '#205C50' },
+  { id: 10, name: 'Auto Service Discount', code: 'AUTO10', store: 'AutoMax Service', products: 'Oil Change', discount: '10%', redemptions: 23, validFrom: '2025-05-01', validUntil: '2025-07-31', status: 'paused', accessType: 'exclusive', icon: 'directions_car', color: '#6B7E79' },
 ]
 
 export const adsCampaigns = [
@@ -52,16 +52,16 @@ export const brochures = [
 ]
 
 export const subscribers = [
-  { id: 1, name: 'Maria Santos', email: 'maria@email.com', avatar: 'MS', plan: 'yearly', status: 'active', engagement: 92, couponsUsed: 34, subscribedDate: '2024-03-15' },
-  { id: 2, name: 'James Cruz', email: 'james@email.com', avatar: 'JC', plan: 'monthly', status: 'active', engagement: 78, couponsUsed: 18, subscribedDate: '2024-06-22' },
-  { id: 3, name: 'Anna Reyes', email: 'anna@email.com', avatar: 'AR', plan: 'monthly', status: 'expiring', engagement: 45, couponsUsed: 12, subscribedDate: '2024-08-10' },
-  { id: 4, name: 'Carlos Garcia', email: 'carlos@email.com', avatar: 'CG', plan: 'yearly', status: 'active', engagement: 88, couponsUsed: 29, subscribedDate: '2024-01-05' },
-  { id: 5, name: 'Diana Lee', email: 'diana@email.com', avatar: 'DL', plan: 'trial', status: 'trial', engagement: 25, couponsUsed: 3, subscribedDate: '2025-07-01' },
-  { id: 6, name: 'Rafael Torres', email: 'rafael@email.com', avatar: 'RT', plan: 'monthly', status: 'churned', engagement: 12, couponsUsed: 8, subscribedDate: '2024-09-18' },
-  { id: 7, name: 'Sofia Mendoza', email: 'sofia@email.com', avatar: 'SM', plan: 'yearly', status: 'active', engagement: 95, couponsUsed: 41, subscribedDate: '2023-11-20' },
-  { id: 8, name: 'Miguel Ramos', email: 'miguel@email.com', avatar: 'MR', plan: 'monthly', status: 'active', engagement: 67, couponsUsed: 15, subscribedDate: '2024-12-03' },
-  { id: 9, name: 'Lisa Tan', email: 'lisa@email.com', avatar: 'LT', plan: 'monthly', status: 'cancelled', engagement: 0, couponsUsed: 5, subscribedDate: '2024-07-14' },
-  { id: 10, name: 'David Fernandez', email: 'david@email.com', avatar: 'DF', plan: 'trial', status: 'trial', engagement: 35, couponsUsed: 2, subscribedDate: '2025-07-10' },
+  { id: 1, name: 'Maria Santos', email: 'maria@email.com', avatar: 'MS', plan: 'standard', billingCycle: 'yearly', status: 'active', engagement: 92, couponsUsed: 34, subscribedDate: '2024-03-15' },
+  { id: 2, name: 'James Cruz', email: 'james@email.com', avatar: 'JC', plan: 'standard', billingCycle: 'monthly', status: 'active', engagement: 78, couponsUsed: 18, subscribedDate: '2024-06-22' },
+  { id: 3, name: 'Anna Reyes', email: 'anna@email.com', avatar: 'AR', plan: 'family', billingCycle: 'monthly', status: 'expiring', engagement: 45, couponsUsed: 12, subscribedDate: '2024-08-10' },
+  { id: 4, name: 'Carlos Garcia', email: 'carlos@email.com', avatar: 'CG', plan: 'family', billingCycle: 'yearly', status: 'active', engagement: 88, couponsUsed: 29, subscribedDate: '2024-01-05' },
+  { id: 5, name: 'Diana Lee', email: 'diana@email.com', avatar: 'DL', plan: 'free', billingCycle: null, status: 'active', engagement: 25, couponsUsed: 3, subscribedDate: '2025-07-01' },
+  { id: 6, name: 'Rafael Torres', email: 'rafael@email.com', avatar: 'RT', plan: 'standard', billingCycle: 'monthly', status: 'churned', engagement: 12, couponsUsed: 8, subscribedDate: '2024-09-18' },
+  { id: 7, name: 'Sofia Mendoza', email: 'sofia@email.com', avatar: 'SM', plan: 'standard', billingCycle: 'yearly', status: 'active', engagement: 95, couponsUsed: 41, subscribedDate: '2023-11-20' },
+  { id: 8, name: 'Miguel Ramos', email: 'miguel@email.com', avatar: 'MR', plan: 'family', billingCycle: 'monthly', status: 'active', engagement: 67, couponsUsed: 15, subscribedDate: '2024-12-03' },
+  { id: 9, name: 'Lisa Tan', email: 'lisa@email.com', avatar: 'LT', plan: 'standard', billingCycle: 'monthly', status: 'cancelled', engagement: 0, couponsUsed: 5, subscribedDate: '2024-07-14' },
+  { id: 10, name: 'David Fernandez', email: 'david@email.com', avatar: 'DF', plan: 'free', billingCycle: null, status: 'active', engagement: 35, couponsUsed: 2, subscribedDate: '2025-07-10' },
 ]
 
 export const lineOfBusiness = [

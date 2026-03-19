@@ -16,8 +16,6 @@ const variants = {
   declined: 'bg-error-bg text-error-fg',
   ended: 'bg-error-bg text-error-fg',
   churned: 'bg-error-bg text-error-fg',
-  trial: 'bg-info-bg text-info-fg',
-  free_trial: 'bg-info-bg text-info-fg',
 }
 
 export default function StatusBadge({ status, className = '' }) {
