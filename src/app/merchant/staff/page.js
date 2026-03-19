@@ -180,17 +180,17 @@ export default function MerchantStaffPage() {
       {loading ? (
         <TableSkeleton rows={5} />
       ) : staff.length === 0 ? (
-        <div className="bg-white rounded-xl border border-border p-12 text-center">
+        <div className="glass-card rounded-2xl p-12 text-center">
           <Icon name="badge" size={48} className="text-muted-foreground mx-auto mb-3" />
           <h3 className="text-lg font-semibold text-foreground mb-1">No staff members found</h3>
           <p className="text-sm text-muted-foreground">Add staff members to help manage your stores.</p>
         </div>
       ) : (
         <>
-          <div className="bg-white rounded-xl border border-border overflow-hidden">
+          <div className="glass-table rounded-2xl overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-border bg-muted/30">
+                <tr className="border-b border-white/15">
                   <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Name</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Role</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
@@ -198,9 +198,9 @@ export default function MerchantStaffPage() {
                   <th className="text-right px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-white/10">
                 {staff.map((member) => (
-                  <tr key={member.id} className="hover:bg-muted/20 transition-colors">
+                  <tr key={member.id} className="hover:bg-white/10 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">

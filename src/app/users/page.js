@@ -211,7 +211,7 @@ export default function Users() {
       </div>
 
       <div className="bg-card border border-border rounded-xl shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
-        <div className="p-4 border-b border-border">
+        <div className="p-4 border-b border-white/15">
           <FilterBar filters={filters} activeFilter={filter} onFilterChange={handleFilterChange} onSearch={handleSearch} />
         </div>
 
@@ -227,7 +227,7 @@ export default function Users() {
         ) : (
           <>
             <table className="w-full text-sm">
-              <thead><tr className="border-b border-border text-xs text-muted-foreground">
+              <thead><tr className="border-b border-white/15 text-xs text-muted-foreground">
                 <th className="text-left px-4 py-3 font-medium">User</th>
                 <th className="text-left px-4 py-3 font-medium">Role</th>
                 <th className="text-left px-4 py-3 font-medium">Status</th>
@@ -239,7 +239,7 @@ export default function Users() {
                 {users.map((u, idx) => {
                   const roleSlug = getRoleSlug(u)
                   return (
-                    <tr key={u.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                    <tr key={u.id} className="border-b border-white/15 last:border-0 hover:bg-muted/30">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2.5">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${avatarColors[idx % avatarColors.length]}`}>{u.initials || getInitials(u.name)}</div>

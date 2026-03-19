@@ -416,7 +416,7 @@ export default function AdsManagement() {
       </div>
 
       <div className="bg-card border border-border rounded-xl shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
-        <div className="p-4 border-b border-border flex items-center justify-between gap-4">
+        <div className="p-4 border-b border-white/15 flex items-center justify-between gap-4">
           <div className="flex-1">
             <FilterBar filters={filters} activeFilter={filter} onFilterChange={handleFilterChange} searchValue={search} onSearchChange={setSearch} />
           </div>
@@ -528,7 +528,7 @@ export default function AdsManagement() {
           <>
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-xs text-muted-foreground">
+                <tr className="border-b border-white/15 text-xs text-muted-foreground">
                   <th className="text-left px-4 py-3 font-medium">Campaign</th>
                   <th className="text-left px-4 py-3 font-medium">Merchant</th>
                   <th className="text-left px-4 py-3 font-medium">Placement</th>
@@ -545,7 +545,7 @@ export default function AdsManagement() {
                   const placementLabel = c.placement?.name || c.placement?.type || c.placement || '—'
                   const placementType = c.placement?.type || c.placement || ''
                   return (
-                    <tr key={c.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                    <tr key={c.id} className="border-b border-white/15 last:border-0 hover:bg-muted/30">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center"><Icon name="campaign" size={16} className="text-primary" /></div>
@@ -626,7 +626,7 @@ export default function AdsManagement() {
         <div>
           {/* ===== Edit Mode: Clickable Tab Navigation ===== */}
           {editingCampaign && (
-            <div className="flex gap-1 mb-5 border-b border-border -mx-1">
+            <div className="flex gap-1 mb-5 border-b border-white/15 -mx-1">
               {[
                 { step: 1, label: 'Placement', icon: 'dashboard' },
                 { step: 2, label: 'Details', icon: 'edit_note' },
@@ -684,7 +684,7 @@ export default function AdsManagement() {
                   const dbPlc = placements.find(dp => dp.value === p.value)
                   return (
                     <button key={p.value} type="button" onClick={() => updateFormField('placementType', p.value)}
-                      className={`relative rounded-xl border-2 p-3 text-left transition-all duration-200 hover:scale-[1.02] ${isSelected ? 'border-primary bg-primary/5 shadow-md shadow-primary/10' : 'border-border hover:border-primary/40 hover:bg-muted/20'}`}>
+                      className={`relative rounded-xl border-2 p-3 text-left transition-all duration-200 hover:scale-[1.02] ${isSelected ? 'border-primary bg-primary/5 shadow-md shadow-primary/10' : 'border-border hover:border-primary/40 hover:bg-white/10'}`}>
                       {p.badge && (
                         <span className={`absolute top-2 left-2 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${p.badge === 'Most Popular' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>{p.badge}</span>
                       )}

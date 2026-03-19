@@ -30,7 +30,7 @@ export default function Pagination({ currentPage, totalPages, totalItems, itemsP
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="px-2.5 py-1.5 text-xs rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-2.5 py-1.5 text-xs rounded-xl glass-button text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Icon name="chevron_left" size={14} />
         </button>
@@ -41,10 +41,10 @@ export default function Pagination({ currentPage, totalPages, totalItems, itemsP
             <button
               key={page}
               onClick={() => onPageChange(page)}
-              className={`w-8 h-8 text-xs rounded-lg font-medium ${
+              className={`w-8 h-8 text-xs rounded-xl font-medium transition-all duration-200 ${
                 currentPage === page
-                  ? 'bg-primary text-primary-foreground'
-                  : 'border border-border bg-card text-muted-foreground hover:bg-muted'
+                  ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
+                  : 'glass-button text-muted-foreground'
               }`}
             >
               {page}
@@ -54,7 +54,7 @@ export default function Pagination({ currentPage, totalPages, totalItems, itemsP
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className="px-2.5 py-1.5 text-xs rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-2.5 py-1.5 text-xs rounded-xl glass-button text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Icon name="chevron_right" size={14} />
         </button>

@@ -13,8 +13,8 @@ export default function Modal({ open, onClose, children }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative bg-card rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
+      <div className="absolute inset-0 glass-overlay" onClick={onClose} />
+      <div className="relative glass-modal rounded-2xl p-6 max-w-md w-full mx-4">
         {children}
       </div>
     </div>
@@ -25,7 +25,7 @@ export function DeleteModal({ open, onClose, onConfirm, entityName, message }) {
   return (
     <Modal open={open} onClose={onClose}>
       <div className="text-center">
-        <div className="w-12 h-12 rounded-full bg-error-bg flex items-center justify-center mx-auto mb-4">
+        <div className="w-12 h-12 rounded-2xl bg-error-bg flex items-center justify-center mx-auto mb-4 glass-badge">
           <Icon name="warning" size={24} className="text-error-fg" />
         </div>
         <h3 className="text-lg font-semibold text-foreground mb-1">Delete {entityName}?</h3>
@@ -33,10 +33,10 @@ export function DeleteModal({ open, onClose, onConfirm, entityName, message }) {
           {message || `This action cannot be undone. This will permanently delete "${entityName}".`}
         </p>
         <div className="flex items-center justify-center gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-medium rounded-full border border-border bg-card hover:bg-muted">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium rounded-xl glass-button text-foreground">
             Cancel
           </button>
-          <button onClick={onConfirm} className="px-4 py-2 text-sm font-medium rounded-full bg-destructive text-white hover:opacity-90">
+          <button onClick={onConfirm} className="px-4 py-2 text-sm font-medium rounded-xl bg-destructive text-white hover:opacity-90 transition-opacity">
             Delete
           </button>
         </div>

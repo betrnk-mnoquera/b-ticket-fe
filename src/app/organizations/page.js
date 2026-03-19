@@ -421,7 +421,7 @@ export default function Organizations() {
           <StatsCard icon="check_circle" label="Status" value={selectedOrg.status === 'active' ? 'Active' : 'Inactive'} />
         </div>
 
-        <div className="flex gap-1 mb-4 border-b border-border">
+        <div className="flex gap-1 mb-4 border-b border-white/15">
           {['overview', 'stores'].map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px capitalize ${activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
@@ -453,7 +453,7 @@ export default function Organizations() {
             {orgStores.length > 0 ? (
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-border text-xs text-muted-foreground">
+                  <tr className="border-b border-white/15 text-xs text-muted-foreground">
                     <th className="text-left px-4 py-3 font-medium">Store</th>
                     <th className="text-left px-4 py-3 font-medium">Type</th>
                     <th className="text-left px-4 py-3 font-medium">Category</th>
@@ -464,7 +464,7 @@ export default function Organizations() {
                 </thead>
                 <tbody>
                   {orgStores.map(store => (
-                    <tr key={store.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                    <tr key={store.id} className="border-b border-white/15 last:border-0 hover:bg-muted/30">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -584,7 +584,7 @@ export default function Organizations() {
           <StatsCard icon="visibility" label="App Views" value="-" />
         </div>
 
-        <div className="flex gap-1 mb-4 border-b border-border">
+        <div className="flex gap-1 mb-4 border-b border-white/15">
           {['overview', 'photos', 'products'].map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px capitalize ${activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
@@ -834,7 +834,7 @@ export default function Organizations() {
       </div>
 
       {/* View Mode Toggle */}
-      <div className="flex gap-1 mb-4 border-b border-border">
+      <div className="flex gap-1 mb-4 border-b border-white/15">
         {['stores', 'organizations'].map(mode => (
           <button key={mode} onClick={() => setViewMode(mode)}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px capitalize ${viewMode === mode ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
@@ -860,7 +860,7 @@ export default function Organizations() {
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-xs text-muted-foreground">
+                <tr className="border-b border-white/15 text-xs text-muted-foreground">
                   <th className="text-left px-4 py-3 font-medium">Organization</th>
                   <th className="text-left px-4 py-3 font-medium">Contact</th>
                   <th className="text-left px-4 py-3 font-medium">Stores</th>
@@ -873,7 +873,7 @@ export default function Organizations() {
                   const isExpanded = expandedOrgId === org.id
                   return (
                     <React.Fragment key={org.id}>
-                      <tr className={`border-b border-border hover:bg-muted/30 cursor-pointer ${isExpanded ? 'bg-muted/20' : ''}`} onClick={() => toggleExpandOrg(org)}>
+                      <tr className={`border-b border-white/15 hover:bg-muted/30 cursor-pointer ${isExpanded ? 'bg-muted/20' : ''}`} onClick={() => toggleExpandOrg(org)}>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2.5">
                             <Icon name={isExpanded ? 'expand_more' : 'chevron_right'} size={18} className="text-muted-foreground" />
@@ -908,7 +908,7 @@ export default function Organizations() {
                       {isExpanded && (
                         <tr>
                           <td colSpan={5} className="p-0">
-                            <div className="bg-muted/10 border-b border-border">
+                            <div className="bg-muted/10 border-b border-white/15">
                               {loadingOrgStores ? (
                                 <div className="flex items-center justify-center py-6">
                                   <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent mr-2" />
@@ -967,7 +967,7 @@ export default function Organizations() {
 
       {/* Stores Table */}
       {viewMode === 'stores' && <div className="bg-card border border-border rounded-xl shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
-        <div className="p-4 border-b border-border">
+        <div className="p-4 border-b border-white/15">
           <FilterBar filters={filters} activeFilter={filter} onFilterChange={handleFilterChange} onSearch={handleSearch} />
         </div>
 
@@ -990,7 +990,7 @@ export default function Organizations() {
           <>
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-xs text-muted-foreground">
+                <tr className="border-b border-white/15 text-xs text-muted-foreground">
                   <th className="text-left px-4 py-3 font-medium">Store</th>
                   <th className="text-left px-4 py-3 font-medium">Type</th>
                   <th className="text-left px-4 py-3 font-medium">Organization</th>
@@ -1006,7 +1006,7 @@ export default function Organizations() {
                   const categoryName = store.lineOfBusiness?.name || '-'
                   const customFields = store.customFields || {}
                   return (
-                    <tr key={store.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                    <tr key={store.id} className="border-b border-white/15 last:border-0 hover:bg-muted/30">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">

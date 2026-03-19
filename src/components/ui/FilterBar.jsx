@@ -19,7 +19,7 @@ export default function FilterBar({ filters, activeFilter, onFilterChange, searc
           placeholder={searchPlaceholder}
           value={search}
           onChange={handleSearch}
-          className="pl-9 pr-4 py-2 text-sm rounded-full border border-border bg-card focus:outline-none focus:ring-2 focus:ring-ring w-56"
+          className="pl-9 pr-4 py-2 text-sm rounded-xl glass-input w-56 focus:outline-none"
         />
       </div>
 
@@ -28,7 +28,7 @@ export default function FilterBar({ filters, activeFilter, onFilterChange, searc
           key={i}
           value={dd.value}
           onChange={(e) => dd.onChange(e.target.value)}
-          className="px-3 py-1.5 text-xs font-medium rounded-full border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none pr-7 bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M7%2010l5%205%205-5z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_8px_center] bg-no-repeat"
+          className="px-3 py-1.5 text-xs font-medium rounded-xl glass-input text-foreground focus:outline-none appearance-none pr-7 bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M7%2010l5%205%205-5z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_8px_center] bg-no-repeat"
         >
           {dd.options.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -41,10 +41,10 @@ export default function FilterBar({ filters, activeFilter, onFilterChange, searc
           <button
             key={filter}
             onClick={() => onFilterChange(filter)}
-            className={`px-3.5 py-1.5 text-xs font-medium rounded-full transition-colors ${
+            className={`px-3.5 py-1.5 text-xs font-medium rounded-xl transition-all duration-200 ${
               activeFilter === filter
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-card text-muted-foreground border border-border hover:bg-muted'
+                ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
+                : 'glass-button text-muted-foreground'
             }`}
           >
             {filter}

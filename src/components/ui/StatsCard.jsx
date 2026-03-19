@@ -4,13 +4,13 @@ export default function StatsCard({ icon, label, value, change, highlight = fals
   const isPositive = change && !change.startsWith('-')
 
   return (
-    <div className={`rounded-xl p-5 ${highlight ? 'bg-primary text-primary-foreground' : 'bg-card border border-border'} shadow-[0_2px_4px_rgba(0,0,0,0.04)]`}>
+    <div className={`rounded-2xl p-5 transition-all duration-200 ${highlight ? 'glass-card-highlight' : 'glass-card'} hover:shadow-lg hover:shadow-black/[0.06]`}>
       <div className="flex items-center justify-between mb-3">
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${highlight ? 'bg-white/15' : 'bg-muted'}`}>
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${highlight ? 'bg-white/15' : 'bg-primary/8'}`}>
           <Icon name={icon} size={18} className={highlight ? 'text-white' : 'text-primary'} />
         </div>
         {change && (
-          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+          <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full glass-badge ${
             highlight
               ? 'bg-white/15 text-white'
               : isPositive

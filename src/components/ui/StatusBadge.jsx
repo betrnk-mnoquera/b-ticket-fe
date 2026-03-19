@@ -24,7 +24,7 @@ export default function StatusBadge({ status, className = '' }) {
   const label = status?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${style} ${className}`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium capitalize glass-badge ${style} ${className}`}>
       {label}
     </span>
   )

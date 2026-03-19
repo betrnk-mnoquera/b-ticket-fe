@@ -764,7 +764,7 @@ export default function Coupons() {
       </div>
 
       <div className="bg-card border border-border rounded-xl shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
-        <div className="p-4 border-b border-border">
+        <div className="p-4 border-b border-white/15">
           <FilterBar
             filters={filters}
             activeFilter={filter}
@@ -820,7 +820,7 @@ export default function Coupons() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border text-xs text-muted-foreground">
+              <tr className="border-b border-white/15 text-xs text-muted-foreground">
                 <th className="text-left px-4 py-3 font-medium">Coupon</th>
                 <th className="text-left px-4 py-3 font-medium">Store</th>
                 <th className="text-left px-4 py-3 font-medium">Products & Services</th>
@@ -837,7 +837,7 @@ export default function Coupons() {
                 const storeName = c.storeName || c.store || '—'
                 const discount = formatDiscount(c)
                 return (
-                  <tr key={c.id} onClick={() => handleSelectCoupon(c)} className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer">
+                  <tr key={c.id} onClick={() => handleSelectCoupon(c)} className="border-b border-white/15 last:border-0 hover:bg-muted/30 cursor-pointer">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: (c.color || '#205C50') + '20' }}>
