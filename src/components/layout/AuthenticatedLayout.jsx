@@ -4,12 +4,13 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { AuthProvider, useAuth } from '@/lib/auth/AuthContext'
 import Sidebar from './Sidebar'
+import MerchantSidebar from './MerchantSidebar'
 import Icon from '../ui/Icon'
 
 function LayoutContent({ children }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, isMerchant } = useAuth()
 
   const isLoginPage = pathname === '/login'
 
@@ -40,7 +41,7 @@ function LayoutContent({ children }) {
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar />
+      {isMerchant ? <MerchantSidebar /> : <Sidebar />}
       <main className="flex-1 ml-[280px] p-8">
         {children}
       </main>
