@@ -963,7 +963,7 @@ export default function Coupons() {
           {/* SECTION 2: Discount Configuration */}
           <Accordion title="Discount Configuration" subtitle="Type, value & discount cap" icon="local_offer">
             <div className="space-y-4">
-              <FormField label="Discount Type" select options={['Percentage', 'Fixed Amount', 'Buy X Get Y', 'Free Item', 'Bundle Deal', 'Free Shipping']} value={
+              <FormField label="Discount Type" select options={['Percentage', 'Fixed Amount', 'Buy X Get Y', 'Free Item', 'Bundle Deal']} value={
                 discountType === 'percentage' ? 'Percentage' : discountType === 'fixed' ? 'Fixed Amount' : discountType === 'bogo' ? 'Buy X Get Y' : discountType === 'free_item' ? 'Free Item' : discountType === 'bundle' ? 'Bundle Deal' : discountType === 'free_shipping' ? 'Free Shipping' : ''
               } onChange={(v) => {
                 const key = v === 'Percentage' ? 'percentage' : v === 'Fixed Amount' ? 'fixed' : v === 'Buy X Get Y' ? 'bogo' : v === 'Free Item' ? 'free_item' : v === 'Bundle Deal' ? 'bundle' : v === 'Free Shipping' ? 'free_shipping' : ''
