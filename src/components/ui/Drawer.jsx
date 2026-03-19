@@ -13,11 +13,11 @@ export default function Drawer({ open, onClose, title, children, footer, width =
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} />
-      <div className={`fixed top-0 right-0 h-full ${width} bg-card shadow-xl z-50 flex flex-col animate-slide-in`}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+      <div className="fixed inset-0 glass-overlay z-40" onClick={onClose} />
+      <div className={`fixed top-0 right-0 h-full ${width} glass-modal z-50 flex flex-col animate-slide-in`}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/20">
           <h2 className="text-lg font-semibold text-foreground">{title}</h2>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
+          <button onClick={onClose} className="p-1.5 rounded-xl glass-button text-muted-foreground hover:text-foreground">
             <Icon name="close" size={20} />
           </button>
         </div>
@@ -25,14 +25,14 @@ export default function Drawer({ open, onClose, title, children, footer, width =
           {children}
         </div>
         {footer && (
-          <div className="px-6 py-4 border-t border-border flex items-center justify-end gap-3">
+          <div className="px-6 py-4 border-t border-white/20 flex items-center justify-end gap-3">
             {footer}
           </div>
         )}
       </div>
       <style>{`
         @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
-        .animate-slide-in { animation: slideIn 0.25s ease-out; }
+        .animate-slide-in { animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
       `}</style>
     </>
   )

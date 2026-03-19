@@ -33,10 +33,10 @@ export default function Accordion({ title, id, defaultOpen = false, icon, subtit
   }
 
   return (
-    <div className="border border-border rounded-xl overflow-hidden">
+    <div className="glass-card rounded-2xl overflow-hidden">
       <button
         onClick={handleToggle}
-        className="w-full flex items-center justify-between px-4 py-3 bg-card hover:bg-muted/50 text-left"
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/10 text-left transition-colors"
       >
         <div className="flex items-center gap-2.5">
           {icon && <Icon name={icon} size={18} className="text-primary" />}
@@ -47,7 +47,7 @@ export default function Accordion({ title, id, defaultOpen = false, icon, subtit
         </div>
         <Icon name={isOpen ? 'expand_less' : 'expand_more'} size={20} className="text-muted-foreground" />
       </button>
-      {isOpen && <div className="px-4 py-4 border-t border-border">{children}</div>}
+      {isOpen && <div className="px-4 py-4 border-t border-white/15">{children}</div>}
     </div>
   )
 }

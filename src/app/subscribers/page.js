@@ -314,7 +314,7 @@ export default function Subscribers() {
       </div>
 
       <div className="bg-card border border-border rounded-xl shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
-        <div className="p-4 border-b border-border">
+        <div className="p-4 border-b border-white/15">
           <FilterBar filters={filters} activeFilter={filter} onFilterChange={handleFilterChange} onSearch={handleSearch} dropdowns={[{ value: planFilter, onChange: (v) => { setPlanFilter(v); setPage(1) }, options: planDropdownOptions }]} />
         </div>
 
@@ -336,7 +336,7 @@ export default function Subscribers() {
         ) : (
           <>
             <table className="w-full text-sm">
-              <thead><tr className="border-b border-border text-xs text-muted-foreground">
+              <thead><tr className="border-b border-white/15 text-xs text-muted-foreground">
                 <th className="text-left px-4 py-3 font-medium">Subscriber</th>
                 <th className="text-left px-4 py-3 font-medium">Plan</th>
                 <th className="text-left px-4 py-3 font-medium">Status</th>
@@ -349,7 +349,7 @@ export default function Subscribers() {
                 {subscribers.map(s => {
                   const avatar = s.avatar || (s.name ? s.name.split(' ').map(n => n[0]).join('') : '?')
                   return (
-                    <tr key={s.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                    <tr key={s.id} className="border-b border-white/15 last:border-0 hover:bg-muted/30">
                       <td className="px-4 py-3"><div className="flex items-center gap-2.5"><div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">{avatar}</div><div><div className="font-medium">{s.name}</div><div className="text-xs text-muted-foreground">{s.email}</div></div></div></td>
                       <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${planColors[s.plan] || ''}`}>{s.plan}{s.billingCycle ? ` (${s.billingCycle})` : ''}</span></td>
                       <td className="px-4 py-3"><StatusBadge status={s.status} /></td>

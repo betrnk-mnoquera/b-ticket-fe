@@ -87,26 +87,26 @@ export default function MerchantCouponsPage() {
       {loading ? (
         <TableSkeleton rows={5} />
       ) : coupons.length === 0 ? (
-        <div className="bg-white rounded-xl border border-border p-12 text-center">
+        <div className="glass-card rounded-2xl p-12 text-center">
           <Icon name="local_offer" size={48} className="text-muted-foreground mx-auto mb-3" />
           <h3 className="text-lg font-semibold text-foreground mb-1">No coupons found</h3>
           <p className="text-sm text-muted-foreground">Your coupons will appear here once created.</p>
         </div>
       ) : (
         <>
-          <div className="bg-white rounded-xl border border-border overflow-hidden">
+          <div className="glass-table rounded-2xl overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-border bg-muted/30">
+                <tr className="border-b border-white/15">
                   <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Coupon</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Discount</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Validity</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-white/10">
                 {coupons.map((coupon) => (
-                  <tr key={coupon.id} className="hover:bg-muted/20 transition-colors">
+                  <tr key={coupon.id} className="hover:bg-white/10 transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-medium text-foreground">{coupon.name}</div>
                       <div className="text-xs text-muted-foreground">{coupon.code}</div>

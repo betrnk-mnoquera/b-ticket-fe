@@ -141,31 +141,56 @@ export default function Dashboard() {
     fetchSummaries()
   }, [])
 
+  const glassGridColor = 'rgba(200, 210, 206, 0.3)'
+  const glassTickColor = '#6B7E79'
+  const glassScales = {
+    x: { grid: { color: glassGridColor }, ticks: { color: glassTickColor, font: { size: 11 } } },
+    y: { grid: { color: glassGridColor }, ticks: { color: glassTickColor, font: { size: 11 } } },
+  }
+
   const revenueConfig = {
     data: {
       labels: revenueChartData.labels,
       datasets: [{
         label: 'Revenue',
         data: revenueChartData.values,
-        borderColor: '#205C50',
-        backgroundColor: 'rgba(32,92,80,0.1)',
+        borderColor: '#FCA35A',
+        backgroundColor: (ctx) => {
+          const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 250)
+          gradient.addColorStop(0, 'rgba(252, 163, 90, 0.25)')
+          gradient.addColorStop(1, 'rgba(252, 163, 90, 0.01)')
+          return gradient
+        },
         fill: true,
         tension: 0.4,
         pointRadius: 0,
+        pointHoverRadius: 6,
+        pointHoverBackgroundColor: '#FCA35A',
+        pointHoverBorderColor: '#fff',
+        pointHoverBorderWidth: 2,
+        borderWidth: 2.5,
       }],
     },
-    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: v => `$${v/1000}K` } } } },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(40, 40, 40, 0.85)', titleFont: { size: 12 }, bodyFont: { size: 12 }, cornerRadius: 10, padding: 10 } },
+      scales: { ...glassScales, y: { ...glassScales.y, beginAtZero: true, ticks: { ...glassScales.y.ticks, callback: v => `$${v/1000}K` } } },
+    },
   }
 
   const subscriberConfig = {
     data: {
       labels: subscriberChartData.labels,
       datasets: [
-        { label: 'New Subscribers', data: subscriberChartData.newSubscribers, borderColor: '#205C50', backgroundColor: 'transparent', tension: 0.4, pointRadius: 3 },
-        { label: 'Churned', data: subscriberChartData.churned, borderColor: '#EE4036', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.4, pointRadius: 3 },
+        { label: 'New Subscribers', data: subscriberChartData.newSubscribers, borderColor: '#4FA671', backgroundColor: 'transparent', tension: 0.4, pointRadius: 4, pointBackgroundColor: '#4FA671', pointBorderColor: '#fff', pointBorderWidth: 2, borderWidth: 2.5 },
+        { label: 'Churned', data: subscriberChartData.churned, borderColor: '#FCA35A', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.4, pointRadius: 4, pointBackgroundColor: '#FCA35A', pointBorderColor: '#fff', pointBorderWidth: 2, borderWidth: 2 },
       ],
     },
-    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'line' } } }, scales: { y: { beginAtZero: true } } },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', color: glassTickColor, font: { size: 11 }, padding: 16 } }, tooltip: { backgroundColor: 'rgba(40, 40, 40, 0.85)', cornerRadius: 10, padding: 10 } },
+      scales: { ...glassScales, y: { ...glassScales.y, beginAtZero: true } },
+    },
   }
 
   const storeConfig = {
@@ -174,23 +199,34 @@ export default function Dashboard() {
       datasets: [{
         label: 'Revenue',
         data: storePerformanceData.values,
-        backgroundColor: '#205C50',
-        borderRadius: 6,
+        backgroundColor: 'rgba(79, 166, 113, 0.75)',
+        hoverBackgroundColor: '#4FA671',
+        borderRadius: 8,
+        borderSkipped: false,
       }],
     },
-    options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { callback: v => `$${v/1000}K` } } } },
+    options: {
+      responsive: true,
+      indexAxis: 'y',
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(40, 40, 40, 0.85)', cornerRadius: 10, padding: 10 } },
+      scales: { ...glassScales, x: { ...glassScales.x, ticks: { ...glassScales.x.ticks, callback: v => `$${v/1000}K` } } },
+    },
   }
 
   const adsConfig = {
     data: {
       labels: adsPerformanceData.labels,
       datasets: [
-        { label: 'Impressions', data: adsPerformanceData.impressions, backgroundColor: '#205C50', borderRadius: 4 },
-        { label: 'Clicks', data: adsPerformanceData.clicks, backgroundColor: '#84BEA1', borderRadius: 4 },
-        { label: 'Conversions', data: adsPerformanceData.conversions, backgroundColor: '#50C9BF', borderRadius: 4 },
+        { label: 'Impressions', data: adsPerformanceData.impressions, backgroundColor: 'rgba(79, 166, 113, 0.75)', hoverBackgroundColor: '#4FA671', borderRadius: 6, borderSkipped: false },
+        { label: 'Clicks', data: adsPerformanceData.clicks, backgroundColor: 'rgba(252, 163, 90, 0.75)', hoverBackgroundColor: '#FCA35A', borderRadius: 6, borderSkipped: false },
+        { label: 'Conversions', data: adsPerformanceData.conversions, backgroundColor: 'rgba(252, 196, 145, 0.65)', hoverBackgroundColor: '#FCC491', borderRadius: 6, borderSkipped: false },
       ],
     },
-    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'rect' } } } },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'rectRounded', color: glassTickColor, font: { size: 11 }, padding: 16 } }, tooltip: { backgroundColor: 'rgba(40, 40, 40, 0.85)', cornerRadius: 10, padding: 10 } },
+      scales: glassScales,
+    },
   }
 
   return (
@@ -232,14 +268,14 @@ export default function Dashboard() {
             <TableSkeleton rows={4} />
           ) : (
             <table className="w-full text-sm">
-              <thead><tr className="text-xs text-muted-foreground border-b border-border">
+              <thead><tr className="text-xs text-muted-foreground border-b border-white/15">
                 <th className="text-left py-2 font-medium">Organization</th>
                 <th className="text-left py-2 font-medium">Stores</th>
                 <th className="text-left py-2 font-medium">Status</th>
               </tr></thead>
               <tbody>
                 {orgsSummary.map((o, i) => (
-                  <tr key={i} className="border-b border-border last:border-0">
+                  <tr key={i} className="border-b border-white/15 last:border-0">
                     <td className="py-2.5 font-medium">{o.name}</td>
                     <td className="py-2.5">{o.stores}</td>
                     <td className="py-2.5"><StatusBadge status={o.status} /></td>
@@ -255,14 +291,14 @@ export default function Dashboard() {
             <TableSkeleton rows={3} />
           ) : (
             <table className="w-full text-sm">
-              <thead><tr className="text-xs text-muted-foreground border-b border-border">
+              <thead><tr className="text-xs text-muted-foreground border-b border-white/15">
                 <th className="text-left py-2 font-medium">Campaign</th>
                 <th className="text-left py-2 font-medium">Budget</th>
                 <th className="text-left py-2 font-medium">Status</th>
               </tr></thead>
               <tbody>
                 {adsSummary.map((a, i) => (
-                  <tr key={i} className="border-b border-border last:border-0">
+                  <tr key={i} className="border-b border-white/15 last:border-0">
                     <td className="py-2.5 font-medium">{a.name}</td>
                     <td className="py-2.5">{a.budget}</td>
                     <td className="py-2.5"><StatusBadge status={a.status} /></td>
@@ -300,10 +336,10 @@ export default function Dashboard() {
 
 function ChartCard({ title, badge, children }) {
   return (
-    <div className="bg-card border border-border rounded-xl p-5 shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
+    <div className="glass-card rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{badge}</span>
+        <span className="text-[10px] font-medium px-2.5 py-0.5 rounded-lg glass-badge bg-white/30 text-muted-foreground">{badge}</span>
       </div>
       {children}
     </div>
@@ -312,7 +348,7 @@ function ChartCard({ title, badge, children }) {
 
 function SummaryCard({ title, linkTo, linkLabel, children }) {
   return (
-    <div className="bg-card border border-border rounded-xl p-5 shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
+    <div className="glass-card rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-foreground">{title}</h3>
         <Link href={linkTo} className="text-xs font-medium text-primary hover:underline">{linkLabel}</Link>

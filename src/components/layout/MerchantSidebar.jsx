@@ -40,7 +40,7 @@ export default function MerchantSidebar() {
     .slice(0, 2) ?? '??'
 
   return (
-    <aside className="w-[280px] min-h-screen bg-sidebar-bg flex flex-col fixed top-0 left-0 bottom-0 z-10 border-r border-sidebar-border">
+    <aside className="w-[280px] min-h-screen glass-sidebar flex flex-col fixed top-0 left-0 bottom-0 z-10">
       <div className="px-8 py-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center">

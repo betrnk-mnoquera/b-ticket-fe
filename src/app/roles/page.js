@@ -152,7 +152,7 @@ export default function Roles() {
       </div>
 
       <div className="bg-card border border-border rounded-xl shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
-        <div className="p-4 border-b border-border">
+        <div className="p-4 border-b border-white/15">
           <FilterBar filters={filters} activeFilter={filter} onFilterChange={setFilter} />
         </div>
 
@@ -167,7 +167,7 @@ export default function Roles() {
           </div>
         ) : (
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-border text-xs text-muted-foreground">
+            <thead><tr className="border-b border-white/15 text-xs text-muted-foreground">
               <th className="text-left px-4 py-3 font-medium">Role</th>
               <th className="text-left px-4 py-3 font-medium">Description</th>
               <th className="text-left px-4 py-3 font-medium">Users</th>
@@ -177,7 +177,7 @@ export default function Roles() {
             </tr></thead>
             <tbody>
               {filtered.map(role => (
-                <tr key={role.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                <tr key={role.id} className="border-b border-white/15 last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: (role.color || '#205C50') + '20' }}>

@@ -929,7 +929,7 @@ export default function EditStore() {
                       </thead>
                       <tbody>
                         {products.map((product, i) => (
-                          <tr key={product.id || i} className={i < products.length - 1 ? 'border-b border-border' : ''}>
+                          <tr key={product.id || i} className={i < products.length - 1 ? 'border-b border-white/15' : ''}>
                             <td className="px-4 py-3">
                               <div>
                                 <p className="font-medium text-foreground">{product.name}</p>
@@ -988,7 +988,7 @@ export default function EditStore() {
             </div>
             <div className="border-t border-border pt-5">
               {/* Bulk Apply Row */}
-              <div className="flex items-center gap-3 mb-5 pb-5 border-b border-border">
+              <div className="flex items-center gap-3 mb-5 pb-5 border-b border-white/15">
                 <div className="flex gap-1.5">
                   {dayLetters.map((letter, i) => (
                     <button key={i} type="button" onClick={() => setBulkDays(prev => prev.includes(i) ? prev.filter(d => d !== i) : [...prev, i])}
@@ -1010,7 +1010,7 @@ export default function EditStore() {
               {/* Per-day rows */}
               <div className="space-y-1">
                 {hours.map((h, i) => (
-                  <div key={h.day} className={`flex items-start gap-3 py-3 ${i < hours.length - 1 ? 'border-b border-border' : ''}`}>
+                  <div key={h.day} className={`flex items-start gap-3 py-3 ${i < hours.length - 1 ? 'border-b border-white/15' : ''}`}>
                     <button type="button" onClick={() => setHours(prev => prev.map((p, j) => j === i ? { ...p, open: !p.open, is24h: false } : p))}
                       className={`mt-0.5 w-10 h-5 rounded-full relative transition-colors shrink-0 ${h.open ? 'bg-primary' : 'bg-border'}`}>
                       <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${h.open ? 'left-5' : 'left-0.5'}`} />
