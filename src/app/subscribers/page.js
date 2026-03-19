@@ -294,7 +294,12 @@ export default function Subscribers() {
       />
 
       <div className="grid grid-cols-4 gap-4 mb-6">
-        {statsLoading ? <CardSkeleton count={4} /> : stats.map((s, i) => <StatsCard key={i} {...s} />)}
+        {statsLoading ? <CardSkeleton count={4} /> : stats.map((s, i) => (
+          <button key={i} onClick={() => { if (i === 1) { setFilter('Active'); setPage(1) } }}
+            className="text-left hover:-translate-y-0.5 transition-transform duration-200">
+            <StatsCard {...s} />
+          </button>
+        ))}
       </div>
 
       <div className="bg-card border border-border rounded-xl shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
@@ -307,9 +312,15 @@ export default function Subscribers() {
         ) : error ? (
           <ErrorState message={error} onRetry={fetchSubscribers} />
         ) : subscribers.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Icon name="group" size={40} className="text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">No subscribers found</p>
+          <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
+            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-5">
+              <Icon name="people" size={36} className="text-primary" />
+            </div>
+            <h3 className="text-lg font-bold mb-2">Build your audience!</h3>
+            <p className="text-sm text-muted-foreground mb-6 max-w-md">Start growing your subscriber base to keep customers engaged.</p>
+            <button onClick={() => { setDrawerOpen(true); setFormData({}) }} className="px-6 py-3 text-sm font-semibold rounded-full bg-primary text-white hover:opacity-90 flex items-center gap-2 shadow-lg shadow-primary/20">
+              <Icon name="add" size={18} /> Add Your First Subscriber
+            </button>
           </div>
         ) : (
           <>
