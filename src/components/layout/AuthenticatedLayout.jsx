@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { AuthProvider, useAuth } from '@/lib/auth/AuthContext'
 import Sidebar from './Sidebar'
 import MerchantSidebar from './MerchantSidebar'
@@ -11,6 +11,7 @@ function LayoutContent({ children }) {
   const pathname = usePathname()
   const router = useRouter()
   const { isAuthenticated, isLoading, isMerchant } = useAuth()
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const isLoginPage = pathname === '/login'
 
@@ -39,10 +40,15 @@ function LayoutContent({ children }) {
     return null
   }
 
+  const toggleSidebar = () => setSidebarCollapsed(prev => !prev)
+
   return (
     <div className="flex min-h-screen">
-      {isMerchant ? <MerchantSidebar /> : <Sidebar />}
-      <main className="flex-1 ml-[280px] p-8">
+      {isMerchant
+        ? <MerchantSidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
+        : <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
+      }
+      <main className={`flex-1 ${sidebarCollapsed ? 'ml-[72px]' : 'ml-[280px]'} p-8 transition-all duration-300`}>
         {children}
       </main>
     </div>
