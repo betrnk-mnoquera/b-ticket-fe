@@ -98,6 +98,7 @@ export default function Coupons() {
   const [orgFilter, setOrgFilter] = useState('')
   const [storeFilter, setStoreFilter] = useState('')
   const [accessTypeFilter, setAccessTypeFilter] = useState('')
+  const [offerTypeFilter, setOfferTypeFilter] = useState('')
   const [organizations, setOrganizations] = useState([])
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState(null)
@@ -138,6 +139,7 @@ export default function Coupons() {
         ...(orgFilter && { organization_id: orgFilter }),
         ...(storeFilter && { store_id: storeFilter }),
         ...(accessTypeFilter && { access_type: accessTypeFilter }),
+        ...(offerTypeFilter && { offer_type: offerTypeFilter }),
       }
       const res = await couponService.getCoupons(params)
       setCoupons(res.data || res.items || res)
@@ -148,7 +150,7 @@ export default function Coupons() {
     } finally {
       setLoading(false)
     }
-  }, [page, filter, searchQuery, orgFilter, storeFilter, accessTypeFilter])
+  }, [page, filter, searchQuery, orgFilter, storeFilter, accessTypeFilter, offerTypeFilter])
 
   const fetchStats = useCallback(async () => {
     try {
@@ -159,6 +161,7 @@ export default function Coupons() {
         { icon: 'check_circle', label: 'Active Coupons', value: (d.activeCoupons ?? 0).toLocaleString(), subtitle: 'Currently live' },
         { icon: 'redeem', label: 'Total Redemptions', value: (d.totalRedemptions ?? 0).toLocaleString() },
         { icon: 'trending_up', label: 'Avg. Redemption Rate', value: `${d.avgRedemptionRate ?? 0}%` },
+        { icon: 'bolt', label: 'Flash Deals', value: (d.flashDealCoupons ?? 0).toLocaleString(), subtitle: 'Time-limited offers' },
       ])
     } catch {
       setStats([
@@ -208,7 +211,7 @@ export default function Coupons() {
   // Reset to page 1 when filter or search changes
   useEffect(() => {
     setPage(1)
-  }, [filter, searchQuery, orgFilter, storeFilter])
+  }, [filter, searchQuery, orgFilter, storeFilter, offerTypeFilter])
 
   const handleFilterChange = (f) => {
     setFilter(f)
@@ -309,6 +312,8 @@ export default function Coupons() {
       redemptionWindowValue: restrictions.redemptionWindowValue || '',
       redemptionStartTime: restrictions.redemptionStartTime || '',
       redemptionEndTime: restrictions.redemptionEndTime || '',
+      accessType: coupon.accessType || 'free',
+      offerType: coupon.offerType || 'regular',
     })
     setDiscountType(coupon.discountType || 'percentage')
     setDrawerOpen(true)
@@ -400,6 +405,8 @@ export default function Coupons() {
       usageLimitPerUser: formData.usageLimitPerUser || null,
       customerEligibility: formData.customerEligibility || null,
       accessType: formData.accessType || 'free',
+      offerType: formData.offerType || 'regular',
+      status: formData.status ? formData.status.toLowerCase().replace(' ', '_') : undefined,
     }
   }
 
@@ -522,7 +529,7 @@ export default function Coupons() {
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => openEditDrawer(c)} className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 flex items-center gap-1.5">
+              <button onClick={() => { setSelected(null); setDetailData(null); setRedemptions([]); openEditDrawer(c) }} className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 flex items-center gap-1.5">
                 <Icon name="edit" size={14} /> Edit
               </button>
               <button onClick={() => setDeleteTarget(c)} className="px-4 py-2 text-sm font-medium rounded-full border border-border hover:bg-error-bg hover:text-error-fg flex items-center gap-1.5">
@@ -571,8 +578,23 @@ export default function Coupons() {
                       ['Valid From', formatDate(c.validFrom)],
                       ['Valid Until', formatDate(c.validUntil)],
                       ['Status', c.status || '—'],
+                      ['Access Type', c.accessType === 'exclusive' ? 'Exclusive' : 'Free'],
+                      ['Offer Type', c.offerType === 'flash_deal' ? 'Flash Deal' : 'Regular'],
                     ].map(([l, v], i) => (
-                      <div key={i}><div className="text-xs text-muted-foreground">{l}</div><div className="text-sm font-medium mt-0.5">{v}</div></div>
+                      <div key={i}>
+                        <div className="text-xs text-muted-foreground">{l}</div>
+                        <div className="text-sm font-medium mt-0.5 flex items-center gap-1.5">
+                          {v}
+                          {l === 'Offer Type' && c.offerType === 'flash_deal' && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 font-medium border border-red-200">
+                              <Icon name="bolt" size={10} className="inline mr-0.5" />Flash
+                            </span>
+                          )}
+                          {l === 'Access Type' && c.accessType === 'exclusive' && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium border border-amber-200">Exclusive</span>
+                          )}
+                        </div>
+                      </div>
                     ))}
                   </div>
                   {/* Bundle Combos Display */}
@@ -714,16 +736,35 @@ export default function Coupons() {
                 <div className="bg-card border border-border rounded-xl p-5">
                   <h3 className="text-sm font-semibold mb-3">Activity</h3>
                   <div className="space-y-3">
-                    {(c.activity || [
-                      { label: 'Coupon created', timeAgo: c.createdAt ? formatDate(c.createdAt) : '—' },
-                      ...(c.updatedAt && c.updatedAt !== c.createdAt ? [{ label: 'Last updated', timeAgo: formatDate(c.updatedAt) }] : []),
-                      ...(c.status === 'active' ? [{ label: 'Status changed to active', timeAgo: formatDate(c.updatedAt || c.createdAt) }] : []),
-                    ]).map((item, i) => (
-                      <div key={i} className="flex items-start gap-2.5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-                        <div><div className="text-sm">{item.label || item}</div><div className="text-xs text-muted-foreground">{item.timeAgo || '—'}</div></div>
-                      </div>
-                    ))}
+                    {(c.activityLogs && c.activityLogs.length > 0 ? c.activityLogs : [
+                      { action: 'created', description: 'Coupon created', createdAt: c.createdAt },
+                    ]).map((log, i) => {
+                      const iconMap = { created: 'add_circle', updated: 'edit', status_changed: 'swap_horiz', deleted: 'delete', redeemed: 'redeem' }
+                      const colorMap = { created: 'text-emerald-600', updated: 'text-blue-600', status_changed: 'text-amber-600', deleted: 'text-red-600', redeemed: 'text-purple-600' }
+                      return (
+                        <div key={log.id || i} className="flex items-start gap-2.5">
+                          <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                            <Icon name={iconMap[log.action] || 'info'} size={13} className={colorMap[log.action] || 'text-muted-foreground'} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm">{log.description}</div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-xs text-muted-foreground">{formatDate(log.createdAt || log.created_at)}</span>
+                              {log.performedBy && <span className="text-xs text-muted-foreground">by {log.performedBy || log.performed_by}</span>}
+                            </div>
+                            {log.changeDetails && typeof log.changeDetails === 'object' && Object.keys(log.changeDetails).length > 0 && log.action === 'updated' && (
+                              <div className="mt-1.5 space-y-0.5">
+                                {Object.entries(log.changeDetails).filter(([k]) => !['tiers', 'restrictions', 'products'].includes(k)).slice(0, 5).map(([field, val]) => (
+                                  <div key={field} className="text-[10px] text-muted-foreground">
+                                    <span className="font-medium">{field.replace(/_/g, ' ')}</span>: <span className="line-through opacity-60">{String(val.old ?? '—').substring(0, 30)}</span> → <span>{String(val.new ?? '—').substring(0, 30)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               </div>
@@ -751,15 +792,18 @@ export default function Coupons() {
         }
       />
 
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-5 gap-4 mb-6">
         {stats.length > 0
           ? stats.map((s, i) => (
-            <button key={i} onClick={() => { if (i === 1) { setFilter('Active'); setPage(1) } }}
+            <button key={i} onClick={() => {
+              if (i === 1) { setFilter('Active'); setPage(1) }
+              if (i === 4) { setOfferTypeFilter('flash_deal'); setPage(1) }
+            }}
               className="text-left hover:-translate-y-0.5 transition-transform duration-200">
               <StatsCard {...s} />
             </button>
           ))
-          : Array.from({ length: 4 }).map((_, i) => <CardSkeleton key={i} />)
+          : Array.from({ length: 5 }).map((_, i) => <CardSkeleton key={i} />)
         }
       </div>
 
@@ -777,6 +821,12 @@ export default function Coupons() {
                 options: [{ value: '', label: 'All Types' }, { value: 'free', label: 'Free' }, { value: 'exclusive', label: 'Exclusive' }],
                 value: accessTypeFilter,
                 onChange: setAccessTypeFilter,
+              },
+              {
+                label: 'Offer Type',
+                options: [{ value: '', label: 'All Offers' }, { value: 'regular', label: 'Regular' }, { value: 'flash_deal', label: 'Flash Deal' }],
+                value: offerTypeFilter,
+                onChange: setOfferTypeFilter,
               },
               ...(isSuperAdmin ? [
                 {
@@ -881,9 +931,16 @@ export default function Coupons() {
                     <td className="px-4 py-3 text-xs text-muted-foreground">{formatDate(c.validFrom)} - {formatDate(c.validUntil)}</td>
                     <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${c.accessType === 'exclusive' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>
-                        {c.accessType === 'exclusive' ? 'Exclusive' : 'Free'}
-                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${c.accessType === 'exclusive' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>
+                          {c.accessType === 'exclusive' ? 'Exclusive' : 'Free'}
+                        </span>
+                        {c.offerType === 'flash_deal' && (
+                          <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-50 text-red-600 border border-red-200">
+                            <Icon name="bolt" size={10} className="inline mr-0.5" /> Flash
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
@@ -956,6 +1013,19 @@ export default function Coupons() {
                   ))}
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1">{(formData.accessType || 'free') === 'exclusive' ? 'Only Standard & Family subscribers can claim this coupon' : 'All app users can claim this coupon'}</p>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Offer Type</label>
+                <div className="flex gap-2">
+                  {['regular', 'flash_deal'].map(t => (
+                    <button key={t} type="button" onClick={() => updateFormField('offerType', t)}
+                      className={`flex-1 px-3 py-2 text-sm rounded-lg border font-medium transition-colors ${(formData.offerType || 'regular') === t ? (t === 'flash_deal' ? 'bg-red-50 border-red-300 text-red-700' : 'bg-primary/10 border-primary/30 text-primary') : 'border-border text-muted-foreground hover:bg-muted'}`}>
+                      <Icon name={t === 'flash_deal' ? 'bolt' : 'local_offer'} size={14} className="inline mr-1.5" />
+                      {t === 'flash_deal' ? 'Flash Deal' : 'Regular'}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">{(formData.offerType || 'regular') === 'flash_deal' ? 'Displayed as a time-limited flash deal with urgency indicators' : 'Standard coupon with no special urgency treatment'}</p>
               </div>
               <FormField label="Description" textarea value={formData.description} onChange={(v) => updateFormField('description', v)} />
             </div>

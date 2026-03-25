@@ -33,6 +33,10 @@ export const couponService = {
     return apiClient.post(`/coupons/${id}/redeem`);
   },
 
+  getActivity(id) {
+    return apiClient.get(`/coupons/${id}/activity`);
+  },
+
   getStats() {
     return apiClient.get("/coupons/stats");
   },

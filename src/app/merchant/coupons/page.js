@@ -108,8 +108,17 @@ export default function MerchantCouponsPage() {
                 {coupons.map((coupon) => (
                   <tr key={coupon.id} className="hover:bg-white/10 transition-colors">
                     <td className="px-6 py-4">
-                      <div className="font-medium text-foreground">{coupon.name}</div>
-                      <div className="text-xs text-muted-foreground">{coupon.code}</div>
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <div className="font-medium text-foreground">{coupon.name}</div>
+                          <div className="text-xs text-muted-foreground">{coupon.code}</div>
+                        </div>
+                        {coupon.offerType === 'flash_deal' && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 font-medium border border-red-200 whitespace-nowrap">
+                            <Icon name="bolt" size={10} className="inline mr-0.5" />Flash
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-muted-foreground">
                       {coupon.discountType === 'percentage' ? `${coupon.discountValue}%` : `₱${coupon.discountValue}`}
