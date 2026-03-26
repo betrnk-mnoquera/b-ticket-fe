@@ -27,7 +27,8 @@ const navSections = [
     items: [
       { href: '/subscribers', icon: 'group', label: 'Subscribers' },
       { href: '/plans', icon: 'loyalty', label: 'Plans' },
-      { href: '/line-of-business', icon: 'category', label: 'Line of Business' },
+      { href: '/categories', icon: 'folder_open', label: 'Categories' },
+      { href: '/business-types', icon: 'category', label: 'Business Types' },
     ],
   },
   {

@@ -64,7 +64,7 @@ export const subscribers = [
   { id: 10, name: 'David Fernandez', email: 'david@email.com', avatar: 'DF', plan: 'free', billingCycle: null, status: 'active', engagement: 35, couponsUsed: 2, subscribedDate: '2025-07-10' },
 ]
 
-export const lineOfBusiness = [
+export const businessTypes = [
   { id: 1, name: 'Food & Beverage', categoryId: 'CAT-001', icon: 'restaurant', color: '#205C50', stores: 86, status: 'active', fields: [
     { name: 'Cuisine Type', type: 'select', options: ['Filipino', 'Japanese', 'Italian', 'Chinese', 'American', 'Korean'] },
     { name: 'Seating Capacity', type: 'number' },

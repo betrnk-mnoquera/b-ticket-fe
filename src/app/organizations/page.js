@@ -16,7 +16,7 @@ import ErrorState from '@/components/ui/ErrorState'
 import { useToast } from '@/components/ui/Toast'
 import { storeService } from '@/lib/api/services/storeService'
 import { organizationService } from '@/lib/api/services/organizationService'
-import { lineOfBusinessService } from '@/lib/api/services/lineOfBusinessService'
+import { businessTypeService } from '@/lib/api/services/businessTypeService'
 import { productService } from '@/lib/api/services/productService'
 
 const ITEMS_PER_PAGE = 10
@@ -115,7 +115,7 @@ export default function Organizations() {
       try {
         const [orgsRes, catsRes] = await Promise.all([
           organizationService.getOrganizations({ perPage: 100 }),
-          lineOfBusinessService.getAll({ perPage: 100 }),
+          businessTypeService.getAll({ perPage: 100 }),
         ])
         const orgsResult = orgsRes.data || orgsRes
         const catsResult = catsRes.data || catsRes
@@ -326,7 +326,7 @@ export default function Organizations() {
         await storeService.createStore({
           storeName: formData.storeName,
           organizationId: formData.organizationId,
-          lineOfBusinessId: formData.lineOfBusinessId,
+          businessTypeId: formData.businessTypeId,
           storeType: formData.storeType || null,
           email: formData.email,
           phone: formData.phone,
@@ -484,7 +484,7 @@ export default function Organizations() {
                           {store.storeType === 'franchise' ? 'Franchise' : 'Branch'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{store.lineOfBusiness?.name || '-'}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{store.businessType?.name || '-'}</td>
                       <td className="px-4 py-3 text-muted-foreground">{store.city || '-'}</td>
                       <td className="px-4 py-3"><StatusBadge status={store.status} /></td>
                       <td className="px-4 py-3">
@@ -536,7 +536,7 @@ export default function Organizations() {
 
   if (selectedStore) {
     const orgName = selectedStore.organization?.name || 'Independent'
-    const categoryName = selectedStore.lineOfBusiness?.name || '-'
+    const categoryName = selectedStore.businessType?.name || '-'
 
     return (
       <div>
@@ -935,7 +935,7 @@ export default function Organizations() {
                                             <div className="text-sm font-medium">{store.storeName}</div>
                                             <div className="text-[11px] text-muted-foreground flex items-center gap-2">
                                               <span>{store.storeId}</span>
-                                              {store.lineOfBusiness?.name && <><span>·</span><span>{store.lineOfBusiness.name}</span></>}
+                                              {store.businessType?.name && <><span>·</span><span>{store.businessType.name}</span></>}
                                               {store.city && <><span>·</span><span>{store.city}</span></>}
                                             </div>
                                           </div>
@@ -1003,7 +1003,7 @@ export default function Organizations() {
               <tbody>
                 {stores.map(store => {
                   const orgName = store.organization?.name || 'Independent'
-                  const categoryName = store.lineOfBusiness?.name || '-'
+                  const categoryName = store.businessType?.name || '-'
                   const customFields = store.customFields || {}
                   return (
                     <tr key={store.id} className="border-b border-white/15 last:border-0 hover:bg-muted/30">
