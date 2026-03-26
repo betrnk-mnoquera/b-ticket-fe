@@ -10,8 +10,9 @@ import LoadingSkeleton, { CardSkeleton } from '@/components/ui/LoadingSkeleton'
 import ErrorState from '@/components/ui/ErrorState'
 import { storeService } from '@/lib/api/services/storeService'
 import { organizationService } from '@/lib/api/services/organizationService'
-import { lineOfBusinessService } from '@/lib/api/services/lineOfBusinessService'
+import { businessTypeService } from '@/lib/api/services/businessTypeService'
 import { productService } from '@/lib/api/services/productService'
+import { categoryService } from '@/lib/api/services/categoryService'
 import { mediaService } from '@/lib/api/services/mediaService'
 
 const createSteps = ['Business Details', 'Business Hours', 'Review']
@@ -44,6 +45,7 @@ export default function EditStore() {
   // API state
   const [storeData, setStoreData] = useState(null)
   const [categoriesList, setCategoriesList] = useState([])
+  const [categoryOptionsList, setCategoryOptionsList] = useState([])
   const [organizationsList, setOrganizationsList] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -54,7 +56,7 @@ export default function EditStore() {
   const [formData, setFormData] = useState({
     storeName: '',
     businessType: '',
-    lineOfBusinessId: '',
+    businessTypeId: '',
     storeStatus: 'Active',
     description: '',
     priceRangeMin: 0,
@@ -102,8 +104,9 @@ export default function EditStore() {
     setError(null)
     try {
       const promises = [
-        lineOfBusinessService.getAll({ perPage: 100 }),
+        businessTypeService.getAll({ perPage: 100 }),
         organizationService.getOrganizations({ perPage: 100 }),
+        categoryService.getAll({ status: 'active' }),
       ]
       if (storeId) {
         promises.push(storeService.getStore(storeId))
@@ -111,24 +114,28 @@ export default function EditStore() {
       }
 
       const results = await Promise.all(promises)
-      const catsRes = results[0]
+      const lobsRes = results[0]
       const orgsRes = results[1]
-      const catsResult = catsRes.data || catsRes
+      const catOptsRes = results[2]
+      const lobsResult = lobsRes.data || lobsRes
       const orgsResult = orgsRes.data || orgsRes
-      const cats = catsResult.data || catsResult || []
+      const catOptsResult = catOptsRes.data || catOptsRes
+      const lobs = lobsResult.data || lobsResult || []
       const orgs = orgsResult.data || orgsResult || []
+      const catOpts = catOptsResult.data || catOptsResult || []
 
-      setCategoriesList(cats)
+      setCategoriesList(lobs)
       setOrganizationsList(orgs)
+      setCategoryOptionsList(catOpts)
 
-      if (storeId && results[2]) {
-        const store = results[2].data || results[2]
+      if (storeId && results[3]) {
+        const store = results[3].data || results[3]
         setStoreData(store)
 
         setFormData({
           storeName: store.storeName || '',
           businessType: store.businessType || '',
-          lineOfBusinessId: store.lineOfBusinessId || store.lineOfBusiness?.id || '',
+          businessTypeId: store.businessTypeId || store.businessType?.id || '',
           storeStatus: store.status === 'active' ? 'Active' : store.status === 'inactive' ? 'Inactive' : 'Active',
           description: store.description || '',
           priceRangeMin: store.priceRangeMin || 0,
@@ -164,8 +171,8 @@ export default function EditStore() {
         }
 
         // Load products
-        if (results[3]) {
-          const prodResult = results[3].data || results[3]
+        if (results[4]) {
+          const prodResult = results[4].data || results[4]
           const prods = prodResult.data || prodResult || []
           setProducts(Array.isArray(prods) ? prods : [])
         }
@@ -181,7 +188,7 @@ export default function EditStore() {
     fetchStoreData()
   }, [fetchStoreData])
 
-  const selectedCategory = categoriesList.find(c => String(c.id) === String(formData.lineOfBusinessId))
+  const selectedCategory = categoriesList.find(c => String(c.id) === String(formData.businessTypeId))
   const categoryFields = selectedCategory?.fields || []
 
   const handleFileUpload = async (file, onSuccess) => {
@@ -346,7 +353,7 @@ export default function EditStore() {
       const payload = {
         storeName: formData.storeName,
         businessType: formData.businessType,
-        lineOfBusinessId: formData.lineOfBusinessId || undefined,
+        businessTypeId: formData.businessTypeId || undefined,
         description: formData.description,
         priceRangeMin: formData.priceRangeMin,
         priceRangeMax: formData.priceRangeMax,
@@ -397,7 +404,7 @@ export default function EditStore() {
         const payload = {
           storeName: formData.storeName,
           businessType: formData.businessType,
-          lineOfBusinessId: formData.lineOfBusinessId || undefined,
+          businessTypeId: formData.businessTypeId || undefined,
           description: formData.description,
           priceRangeMin: formData.priceRangeMin,
           priceRangeMax: formData.priceRangeMax,
@@ -564,15 +571,37 @@ export default function EditStore() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-foreground mb-1.5 block">Business Category</label>
-                    <select className={cls} value={formData.lineOfBusinessId} onChange={e => {
-                      setFormData(p => ({ ...p, lineOfBusinessId: e.target.value }))
+                    <label className="text-xs font-medium text-foreground mb-1.5 block">Business Type</label>
+                    <select className={cls} value={formData.businessTypeId} onChange={e => {
+                      setFormData(p => ({ ...p, businessTypeId: e.target.value }))
                       setSelectedFields([])
                       setFieldValues({})
                       setBoolFields({})
                     }}>
                       <option value="">Select category</option>
-                      {categoriesList.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      {(() => {
+                        const grouped = {}
+                        categoriesList.forEach(lob => {
+                          const catName = lob.category?.name || lob.name
+                          if (!grouped[catName]) grouped[catName] = []
+                          // Only add if it has a subcategory (avoid duplicates)
+                          if (lob.subcategory) {
+                            grouped[catName].push(lob)
+                          } else if (!lob.cat_id) {
+                            // Old LOBs without category — show under their own name
+                            grouped[catName].push(lob)
+                          }
+                        })
+                        return Object.entries(grouped).map(([catName, lobs]) => (
+                          lobs.length > 0 ? (
+                            <optgroup key={catName} label={catName}>
+                              {lobs.map(lob => (
+                                <option key={lob.id} value={lob.id}>{lob.subcategory || lob.name}</option>
+                              ))}
+                            </optgroup>
+                          ) : null
+                        ))
+                      })()}
                     </select>
                   </div>
                   <div>
@@ -664,7 +693,7 @@ export default function EditStore() {
                   </div>
                 </div>
 
-                {/* Business Fields - shown when category is selected */}
+                {/* Business Details - shown when category is selected */}
                 {categoryFields.length > 0 && (
                   <div className="mt-6 pt-5 border-t border-border">
                     <div className="flex items-center justify-between mb-4">
@@ -1093,7 +1122,7 @@ export default function EditStore() {
               ['Business Hours', hours.filter(h => h.open).map(h => [
                 h.day, h.is24h ? '24 Hours' : h.slots.map(s => `${formatTime12h(s.openTime)} – ${formatTime12h(s.closeTime)}`).join(', ')
               ])],
-              ['Business Fields', selectedFields.map(name => {
+              ['Business Details', selectedFields.map(name => {
                 const merged = { ...fieldValues, ...Object.fromEntries(Object.entries(boolFields).map(([k, v]) => [k, v ? 'Yes' : 'No'])) }
                 return [name, String(merged[name] ?? '-')]
               })],

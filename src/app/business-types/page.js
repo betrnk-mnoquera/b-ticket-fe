@@ -11,50 +11,13 @@ import Icon from '@/components/ui/Icon'
 import { useToast } from '@/components/ui/Toast'
 import LoadingSkeleton, { CardSkeleton } from '@/components/ui/LoadingSkeleton'
 import ErrorState from '@/components/ui/ErrorState'
-import { lineOfBusinessService } from '@/lib/api/services/lineOfBusinessService'
+import { businessTypeService } from '@/lib/api/services/businessTypeService'
+import { categoryService } from '@/lib/api/services/categoryService'
 
 const filters = ['All', 'Active', 'Inactive']
 const fieldIcons = { text: 'text_fields', select: 'list', number: 'tag', boolean: 'toggle_on' }
-const iconOptions = ['restaurant', 'shopping_bag', 'devices', 'health_and_safety', 'yard', 'directions_car', 'sports_esports', 'school', 'pets', 'spa', 'fitness_center', 'local_library', 'hotel', 'flight', 'theater_comedy']
 
-const categoryPresets = {
-  'Food & Beverage': {
-    icon: 'restaurant',
-    subcategories: ['Japanese', 'Korean', 'Chinese', 'Asian', 'Western', 'Filipino', 'Cafés & Dessert', 'Bars & Nightlife', 'Fast Food', 'Catering'],
-  },
-  'Wellness & Beauty': {
-    icon: 'spa',
-    subcategories: ['Spas & Massage', 'Hair & Nail Salons', 'Lash & Brow Studios', 'Aesthetics & Skincare', 'Sauna & Wellness Centers'],
-  },
-  'Services': {
-    icon: 'devices',
-    subcategories: ['Auto Services', 'Pet Services', 'Laundry & Cleaning', 'Repair & Maintenance', 'Event Services'],
-  },
-  'Entertainment & Leisure': {
-    icon: 'theater_comedy',
-    subcategories: ['Karaoke / KTV', 'Sports & Games', 'Attractions & Theme Parks', 'Activity & Event Venues'],
-  },
-  'Fitness & Sports': {
-    icon: 'fitness_center',
-    subcategories: ['Gyms & Training Studios', 'Yoga & Pilates', 'Dance & Movement', 'Sports Clubs'],
-  },
-  'Hotels & Stays': {
-    icon: 'hotel',
-    subcategories: ['Hotels & Resorts', 'Boutique & Lifestyle Hotels', 'Serviced Apartments', 'Villas', 'Hostels', 'Staycation Packages'],
-  },
-  'Academy & Learning': {
-    icon: 'school',
-    subcategories: ['Language & Academic Education', 'Music & Dance', 'Art & Creative Workshops', 'Cooking & Lifestyle Classes', 'Certification & Test Prep', 'Kids Learning Programs'],
-  },
-  'Travel & Experiences': {
-    icon: 'flight',
-    subcategories: ['Tours & Travel Packages', 'Transport Services', 'Vehicle Rentals', 'Adventure & Outdoor Activities', 'City & Attraction Passes'],
-  },
-}
-
-const categoryOptions = Object.keys(categoryPresets)
-
-export default function LineOfBusiness() {
+export default function BusinessTypes() {
   const [filter, setFilter] = useState('All')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
@@ -63,25 +26,41 @@ export default function LineOfBusiness() {
   const [fields, setFields] = useState([{ name: '', type: 'text', options: '' }])
   const [isActive, setIsActive] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState('')
+  const [selectedSubcategory, setSelectedSubcategory] = useState('')
   const [formData, setFormData] = useState({ name: '', description: '' })
   const toast = useToast()
 
   // API state
   const [categories, setCategories] = useState([])
+  const [categoryOptions, setCategoryOptions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
+  const fetchCategoryOptions = useCallback(async () => {
+    try {
+      const response = await categoryService.getAll({ status: 'active' })
+      const result = response.data || response
+      setCategoryOptions(result.data || result || [])
+    } catch {
+      setCategoryOptions([])
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchCategoryOptions()
+  }, [fetchCategoryOptions])
+
   const fetchCategories = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await lineOfBusinessService.getAll()
+      const response = await businessTypeService.getAll()
       const result = response.data || response
       setCategories(result.data || result || [])
     } catch (err) {
-      setError(err.message || 'Failed to load categories')
+      setError(err.message || 'Failed to load business type')
       setCategories([])
     } finally {
       setLoading(false)
@@ -95,7 +74,7 @@ export default function LineOfBusiness() {
   const filtered = filter === 'All' ? categories : categories.filter(l => l.status === filter.toLowerCase())
 
   const stats = [
-    { icon: 'category', label: 'Total Line of Business', value: String(categories.length) },
+    { icon: 'category', label: 'Total Business Type', value: String(categories.length) },
     { icon: 'store', label: 'Total Stores', value: String(categories.reduce((acc, c) => acc + (c.stores || 0), 0)) },
     { icon: 'trending_up', label: 'Most Popular', value: categories.length > 0 ? [...categories].sort((a, b) => (b.stores || 0) - (a.stores || 0))[0]?.name || '-' : '-' },
     { icon: 'analytics', label: 'Avg. Stores/Category', value: categories.length > 0 ? String(Math.round(categories.reduce((acc, c) => acc + (c.stores || 0), 0) / categories.length)) : '0' },
@@ -105,23 +84,20 @@ export default function LineOfBusiness() {
   const removeField = (i) => setFields(p => p.filter((_, j) => j !== i))
   const updateField = (i, key, val) => setFields(p => p.map((f, j) => j === i ? { ...f, [key]: val } : f))
 
-  const handleCategorySelect = (catName) => {
-    setSelectedCategory(catName)
-    if (catName && categoryPresets[catName]) {
-      const preset = categoryPresets[catName]
-      setFormData(p => ({ ...p, name: catName }))
-      setSelectedIcon(preset.icon)
-      setFields([
-        { name: 'Subcategory', type: 'select', options: preset.subcategories.join(', ') },
-      ])
-    } else {
-      setFields([{ name: '', type: 'text', options: '' }])
+  const handleCategorySelect = (catId) => {
+    setSelectedCategory(catId)
+    setSelectedSubcategory('')
+    const matched = categoryOptions.find(c => String(c.id) === String(catId))
+    if (matched) {
+      setFormData(p => ({ ...p, name: matched.name }))
+      setSelectedIcon(matched.icon || 'restaurant')
     }
   }
 
   const openCreate = () => {
     setEditTarget(null)
     setSelectedCategory('')
+    setSelectedSubcategory('')
     setFormData({ name: '', description: '' })
     setFields([{ name: '', type: 'text', options: '' }])
     setSelectedIcon('restaurant')
@@ -131,14 +107,17 @@ export default function LineOfBusiness() {
 
   const openEdit = (cat) => {
     setEditTarget(cat)
-    setFormData({ name: cat.name || '', description: cat.description || '' })
-    setSelectedCategory(categoryPresets[cat.name] ? cat.name : '')
+    const catId = cat.cat_id ? String(cat.cat_id) : ''
+    setSelectedCategory(catId)
+    setSelectedSubcategory(cat.subcategory || '')
+    const matched = categoryOptions.find(c => String(c.id) === catId)
+    setFormData({ name: matched?.name || cat.name || '', description: cat.description || '' })
+    setSelectedIcon(matched?.icon || cat.icon || 'restaurant')
     setFields(cat.fields?.length > 0 ? cat.fields.map(f => ({
       name: f.name || '',
       type: f.type || 'text',
       options: f.type === 'select' ? (Array.isArray(f.options) ? f.options.join(', ') : f.options || '') : '',
     })) : [{ name: '', type: 'text', options: '' }])
-    setSelectedIcon(cat.icon || 'restaurant')
     setIsActive(cat.status === 'active')
     setDrawerOpen(true)
   }
@@ -150,6 +129,8 @@ export default function LineOfBusiness() {
         name: formData.name,
         description: formData.description,
         icon: selectedIcon,
+        cat_id: selectedCategory || null,
+        subcategory: selectedSubcategory || null,
         status: isActive ? 'active' : 'inactive',
         fields: fields.filter(f => f.name.trim()).map(f => ({
           name: f.name,
@@ -159,16 +140,16 @@ export default function LineOfBusiness() {
       }
 
       if (editTarget) {
-        await lineOfBusinessService.update(editTarget.id, payload)
-        toast('Category updated successfully')
+        await businessTypeService.update(editTarget.id, payload)
+        toast('Business Type updated successfully')
       } else {
-        await lineOfBusinessService.create(payload)
-        toast('Category created successfully')
+        await businessTypeService.create(payload)
+        toast('Business Type created successfully')
       }
       setDrawerOpen(false)
       fetchCategories()
     } catch (err) {
-      toast(err.message || 'Failed to save category')
+      toast(err.message || 'Failed to save')
     } finally {
       setSubmitting(false)
     }
@@ -178,12 +159,12 @@ export default function LineOfBusiness() {
     if (!deleteTarget) return
     setDeleting(true)
     try {
-      await lineOfBusinessService.delete(deleteTarget.id)
-      toast('Category deleted successfully')
+      await businessTypeService.delete(deleteTarget.id)
+      toast('Business Type deleted successfully')
       setDeleteTarget(null)
       fetchCategories()
     } catch (err) {
-      toast(err.message || 'Failed to delete category')
+      toast(err.message || 'Failed to delete')
     } finally {
       setDeleting(false)
     }
@@ -192,10 +173,10 @@ export default function LineOfBusiness() {
   return (
     <div>
       <PageHeader
-        breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'Line of Business' }]}
-        title="Line of Business"
-        subtitle="Manage store categories and business fields"
-        actions={<button onClick={openCreate} className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 flex items-center gap-1.5"><Icon name="add" size={16} /> Add Category</button>}
+        breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'Business Type' }]}
+        title="Business Type"
+        subtitle="Manage business types and their details"
+        actions={<button onClick={openCreate} className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 flex items-center gap-1.5"><Icon name="add" size={16} /> Add Business Type</button>}
       />
 
       <div className="grid grid-cols-4 gap-4 mb-6">
@@ -214,7 +195,7 @@ export default function LineOfBusiness() {
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Icon name="category" size={40} className="text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">No categories found</p>
+            <p className="text-sm text-muted-foreground">No business types found</p>
           </div>
         ) : (
           <table className="w-full text-sm">
@@ -233,10 +214,13 @@ export default function LineOfBusiness() {
                       <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: (cat.color || '#205C50') + '20' }}>
                         <Icon name={cat.icon} size={16} style={{ color: cat.color || '#205C50' }} />
                       </div>
-                      <div><div className="font-medium">{cat.name}</div><div className="text-xs text-muted-foreground">{cat.categoryId}</div></div>
+                      <div>
+                        <div className="font-medium">{cat.name}</div>
+                        {cat.subcategory && <div className="text-xs text-muted-foreground">{cat.subcategory}</div>}
+                      </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 font-medium">{cat.stores || 0}</td>
+                  <td className="px-4 py-3 font-medium">{cat.stores_count || 0}</td>
                   <td className="px-4 py-3">
                     <div className="space-y-1.5">
                       {(cat.fields || []).map((f, i) => (
@@ -270,7 +254,7 @@ export default function LineOfBusiness() {
         )}
       </div>
 
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editTarget ? 'Edit Category' : 'Add Category'} width="w-[560px]"
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editTarget ? 'Edit Business Type' : 'Add Business Type'} width="w-[560px]"
         footer={<><button onClick={() => setDrawerOpen(false)} className="px-4 py-2 text-sm font-medium rounded-full border border-border hover:bg-muted">Cancel</button><button onClick={handleSave} disabled={submitting} className="px-4 py-2 text-sm font-medium rounded-full bg-primary text-white hover:opacity-90 disabled:opacity-50">{submitting ? 'Saving...' : 'Save'}</button></>}
       >
         <div className="space-y-5">
@@ -278,13 +262,26 @@ export default function LineOfBusiness() {
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Category</label>
             <select className="w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-ring" value={selectedCategory} onChange={e => handleCategorySelect(e.target.value)}>
               <option value="">Select a category</option>
-              {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+              {categoryOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            <p className="text-xs text-muted-foreground mt-1">Selecting a category auto-fills subcategories and icon</p>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Category Name</label>
-            <input className="w-full px-3 py-2 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-ring" value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} />
+            <p className="text-xs text-muted-foreground mt-1">Category determines the name and icon</p>
+            {selectedCategory && (() => {
+              const matched = categoryOptions.find(c => String(c.id) === String(selectedCategory))
+              const subs = matched?.subcategories || []
+              return subs.length > 0 ? (
+                <div className="mt-2">
+                  <span className="text-xs font-medium text-muted-foreground">Subcategory</span>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {subs.map((sub, i) => (
+                      <button key={i} type="button" onClick={() => setSelectedSubcategory(sub)}
+                        className={`text-xs px-2.5 py-1 rounded-full transition-colors ${selectedSubcategory === sub ? 'bg-primary text-white' : 'bg-muted text-muted-foreground hover:bg-accent'}`}>
+                        {sub}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null
+            })()}
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Description</label>
@@ -298,20 +295,8 @@ export default function LineOfBusiness() {
           </div>
 
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-2 block">Icon</label>
-            <div className="grid grid-cols-6 gap-2">
-              {iconOptions.map(ic => (
-                <button key={ic} onClick={() => setSelectedIcon(ic)}
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center ${selectedIcon === ic ? 'bg-primary text-white' : 'bg-muted text-muted-foreground hover:bg-accent'}`}>
-                  <Icon name={ic} size={20} />
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
             <div className="flex items-center justify-between mb-3">
-              <label className="text-sm font-semibold">Business Fields</label>
+              <label className="text-sm font-semibold">Business Details</label>
               <span className="text-xs text-muted-foreground">{fields.length} field{fields.length !== 1 ? 's' : ''}</span>
             </div>
             <div className="space-y-3">
