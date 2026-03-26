@@ -1122,7 +1122,7 @@ export default function EditStore() {
               ['Business Hours', hours.filter(h => h.open).map(h => [
                 h.day, h.is24h ? '24 Hours' : h.slots.map(s => `${formatTime12h(s.openTime)} – ${formatTime12h(s.closeTime)}`).join(', ')
               ])],
-              ['Business Details', selectedFields.map(name => {
+              ['Custom Details', selectedFields.map(name => {
                 const merged = { ...fieldValues, ...Object.fromEntries(Object.entries(boolFields).map(([k, v]) => [k, v ? 'Yes' : 'No'])) }
                 return [name, String(merged[name] ?? '-')]
               })],
